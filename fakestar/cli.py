@@ -47,10 +47,12 @@ def run(args: argparse.Namespace, client) -> Verdict:
         return score_signals([sig], repo=args.repo, sample_size=0, notes=notes)
 
     signals: list[Signal] = list(analyze_ratios(repo_data))
+    sampled = 0
 
     if not args.ratios_only:
         try:
             signals += analyze_profiles(client, owner, repo, sample=args.sample)
+            sampled = args.sample
         except Exception as e:  # tolerate detector failure
             notes.append(f"Profile sampling skipped: {e}")
         try:
@@ -59,7 +61,7 @@ def run(args: argparse.Namespace, client) -> Verdict:
         except Exception as e:
             notes.append(f"Temporal analysis skipped: {e}")
 
-    return score_signals(signals, repo=args.repo, sample_size=args.sample,
+    return score_signals(signals, repo=args.repo, sample_size=sampled,
                          notes=notes)
 
 

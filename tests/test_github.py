@@ -1,6 +1,6 @@
 import pytest
 
-from fakestar.github import GitHubClient, RepoNotFound, RateLimited
+from fakestar.github import GitHubClient, GitHubServerError, RepoNotFound, RateLimited
 
 
 class FakeResp:
@@ -71,3 +71,12 @@ def test_5xx_retries_then_succeeds():
     sess = FakeSession([FakeResp(502, {}), FakeResp(200, {"ok": True})])
     c = GitHubClient(token="t", session=sess, sleeper=lambda _s: None)
     assert c.get_repo("o", "r") == {"ok": True}
+
+
+def test_5xx_exhausted_raises():
+    sess = FakeSession([FakeResp(502, {}), FakeResp(502, {}), FakeResp(502, {})])
+    c = GitHubClient(token="t", session=sess, sleeper=lambda _s: None)
+    with pytest.raises(GitHubServerError) as ei:
+        c.get_repo("o", "r")
+    assert ei.value.status == 502
+

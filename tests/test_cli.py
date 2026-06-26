@@ -73,6 +73,13 @@ def test_run_ratios_only_skips_sampling():
     assert names == {"fork_to_star", "watcher_to_star"}
 
 
+def test_run_ratios_only_reports_zero_sample():
+    repo = {"stargazers_count": 70000, "forks_count": 16450, "subscribers_count": 2030}
+    client = FakeClient(repo, [], [])
+    v = run(parse_args(["o/r", "--ratios-only"]), client)
+    assert v.sample_size == 0
+
+
 def test_run_detector_failure_is_tolerated():
     repo = {"stargazers_count": 70000, "forks_count": 16450, "subscribers_count": 2030}
 

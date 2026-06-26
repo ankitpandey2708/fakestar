@@ -17,6 +17,12 @@ class RateLimited(Exception):
         self.reset_ts = reset_ts
 
 
+class GitHubServerError(Exception):
+    def __init__(self, status: int, url: str):
+        super().__init__(f"GitHub server error {status} after 3 attempts: {url}")
+        self.status = status
+
+
 class GitHubClient:
     def __init__(self, token: str | None = None, session=None, sleeper=time.sleep):
         if session is None:
@@ -40,11 +46,12 @@ class GitHubClient:
                 raise RepoNotFound(url)
             if status in (403, 429) and resp.headers.get("X-RateLimit-Remaining") == "0":
                 raise RateLimited(int(resp.headers.get("X-RateLimit-Reset", "0")))
-            if 500 <= status < 600 and attempt < 2:
-                self._sleep(2 ** attempt)
-                continue
+            if 500 <= status < 600:
+                if attempt < 2:
+                    self._sleep(2 ** attempt)
+                    continue
+                raise GitHubServerError(status, url)
             return resp
-        return resp
 
     def get_repo(self, owner: str, repo: str) -> dict[str, Any]:
         return self._request(f"{API}/repos/{owner}/{repo}").json()
