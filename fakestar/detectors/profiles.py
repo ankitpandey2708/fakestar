@@ -81,7 +81,12 @@ def _select_pages(total_pages: int, n_pages: int) -> list[int]:
 def analyze_profiles(
     client, owner: str, repo: str, total_stars: int | None = None,
     sample: int = 150, now: datetime | None = None, workers: int = 8,
-) -> list[Signal]:
+) -> tuple[list[Signal], int]:
+    """Return (signals, n_profiles_actually_analyzed).
+
+    The analyzed count can be below `sample` — a small repo has fewer
+    stargazers than requested, and deleted (404) accounts are dropped.
+    """
     now = now or datetime.now(timezone.utc)
 
     if total_stars is not None and total_stars > 0:
@@ -132,7 +137,7 @@ def analyze_profiles(
     def pct(n: int) -> float:
         return n / counted if counted else 0.0
 
-    return [
+    signals = [
         _pct_signal("ghost_pct", pct(ghosts)),
         _pct_signal("suspicious_pct", pct(suspicious)),
         _pct_signal("zero_followers_pct", pct(zero_followers)),
@@ -140,3 +145,4 @@ def analyze_profiles(
         _pct_signal("zero_following_pct", pct(zero_following)),
         _young_age_signal(median_age, counted),
     ]
+    return signals, counted

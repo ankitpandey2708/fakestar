@@ -62,13 +62,13 @@ def run(args: argparse.Namespace, client) -> Verdict:
 
     if not args.ratios_only:
         try:
-            _progress(f"Sampling {args.sample} stargazer profiles "
+            _progress(f"Sampling up to {args.sample} stargazer profiles "
                       f"({args.workers} workers)…")
-            signals += analyze_profiles(
+            profile_signals, sampled = analyze_profiles(
                 client, owner, repo,
                 total_stars=repo_data.get("stargazers_count", 0),
                 sample=args.sample, workers=args.workers)
-            sampled = args.sample
+            signals += profile_signals
         except Exception as e:  # tolerate detector failure
             notes.append(f"Profile sampling skipped: {e}")
         try:

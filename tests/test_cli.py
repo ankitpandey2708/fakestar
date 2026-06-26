@@ -85,6 +85,15 @@ def test_run_ratios_only_reports_zero_sample():
     assert v.sample_size == 0
 
 
+def test_run_reports_actual_sample_size_not_requested():
+    # repo has only 7 stargazers; a full run (default --sample 150) must report
+    # the 7 actually analyzed, not the requested cap.
+    repo = {"stargazers_count": 7, "forks_count": 1, "subscribers_count": 1}
+    client = FakeClient(repo, _ghosty_users(7), [])
+    v = run(parse_args(["o/r"]), client)
+    assert v.sample_size == 7
+
+
 def test_run_detector_failure_is_tolerated():
     repo = {"stargazers_count": 70000, "forks_count": 16450, "subscribers_count": 2030}
 
