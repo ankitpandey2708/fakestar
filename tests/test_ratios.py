@@ -34,3 +34,4 @@ def test_zero_stars_is_safe():
 def test_caveat_present():
     sigs = analyze_ratios(_repo(70000, 16450, 2030))
     assert all(s.caveat for s in sigs)
+

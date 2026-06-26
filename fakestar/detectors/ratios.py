@@ -40,3 +40,4 @@ def analyze_ratios(repo: dict) -> list[Signal]:
             detail=f"{watchers} watchers / {stars} stars = {ws:.4f}", caveat=_CAVEAT,
         ),
     ]
+
