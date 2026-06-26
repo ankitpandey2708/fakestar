@@ -123,6 +123,62 @@ A repo that returns `404` is scored as deleted (a strong manipulation signal —
 
 ---
 
+## Reading a result (worked example, in plain English)
+
+Think of a repo's stars as **people who clapped** for a project. The tool asks:
+*are these real fans, or paid actors?* Here's a real run on `zuplo/zudoku`:
+
+```
+Repo:    zuplo/zudoku
+Verdict: LIKELY ORGANIC  (risk score 0/100)
+Sample:  130 stargazers
+
+SIGNAL                 VALUE  BASELINE    THRESH  TRIPPED
+------------------------------------------------------------
+fork_to_star          0.1514      0.16      0.05  no
+watcher_to_star       0.0108     0.015     0.002  no
+ghost_pct                0.0      0.01       0.1  no
+suspicious_pct           0.0       0.0      0.15  no
+zero_followers_pct    0.0538       0.1      0.35  no
+zero_repos_pct        0.0308      0.05       0.2  no
+zero_following_pct    0.0538       0.4      0.55  no
+young_median_age      3823.0    3000.0     730.0  no
+temporal_burst           0.0      0.05       0.3  no
+low_contributors        47.0      50.0      10.0  no
+commit_staleness         0.0      30.0     365.0  no
+low_issues           0.11532      0.02     0.001  no
+```
+
+**How to read the columns:** `THRESH` is the "uh-oh line" — a signal only counts
+against the repo if `VALUE` crosses it (`TRIPPED = yes`). `BASELINE` is just what a
+typical organic repo looks like, for reference. Here nothing tripped, so the score
+is **0/100 → LIKELY ORGANIC** (higher score = more suspicious).
+
+What each signal is really asking:
+
+| Signal | In plain English | zudoku |
+|--------|------------------|--------|
+| `fork_to_star` | Did people copy the code to actually use it? | Yes ✅ |
+| `watcher_to_star` | Did people subscribe for updates? | Yes ✅ |
+| `ghost_pct` | How many clappers are empty bot accounts (no repos/followers/bio)? | ~0% ✅ |
+| `suspicious_pct` | How many are brand-new, no-activity accounts? | 0% ✅ |
+| `zero_followers_pct` | How many have no friends on GitHub? (bought accounts usually don't) | 5% ✅ |
+| `zero_repos_pct` | How many have no projects of their own? | 3% ✅ |
+| `zero_following_pct` | How many follow nobody? (real devs follow people) | 5% ✅ |
+| `young_median_age` | How old are the accounts? (fakes are young) | ~10 years ✅ |
+| `temporal_burst` | Did stars arrive in one suspicious spike? | No, gradual ✅ |
+| `low_contributors` | Did real people help build it? | 47 contributors ✅ |
+| `commit_staleness` | Is the project still alive? | Updated today ✅ |
+| `low_issues` | Are real users filing bugs/questions? | Lots ✅ |
+
+**Bottom line:** real coders, with friends and their own projects, on decade-old
+accounts, starring gradually — plus an active project with real contributors and
+bug reports. No part of the story looks faked, so the verdict is confidently
+organic. A *manipulated* repo typically passes some checks but trips the
+profile ones hard (e.g. 50–80% zero-followers) — that mismatch is the giveaway.
+
+---
+
 ## Caveats
 - **First-pass filter, not proof.** Curated lists, docs, and tutorial repos
   naturally have low fork/watcher ratios — and often few contributors, no
