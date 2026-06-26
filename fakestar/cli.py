@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 
+from .detectors.engagement import analyze_engagement
 from .detectors.profiles import analyze_profiles
 from .detectors.ratios import analyze_ratios
 from .detectors.temporal import analyze_temporal
@@ -63,6 +64,10 @@ def run(args: argparse.Namespace, client) -> Verdict:
                                         max_pages=args.timeline_pages)
         except Exception as e:
             notes.append(f"Temporal analysis skipped: {e}")
+        try:
+            signals += analyze_engagement(client, owner, repo, repo_data)
+        except Exception as e:
+            notes.append(f"Engagement analysis skipped: {e}")
 
     return score_signals(signals, repo=args.repo, sample_size=sampled,
                          notes=notes)

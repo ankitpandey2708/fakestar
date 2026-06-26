@@ -137,6 +137,22 @@ class Verdict:
 - **Signal:** largest single-day burst as a fraction of sampled stars.
   **Trip if a burst day exceeds 30% of sampled stars** (tunable).
 
+### 5.4 engagement.py (1 extra call; reuses the already-fetched repo dict)
+
+Real-adoption signals from the blog's "What VCs should use instead" — a repo
+with huge stars but no genuine engagement. Noisier than stargazer fingerprints
+(legit small-team projects vary), so modest weights and the ratio signals are
+gated on `stars > MIN_STARS_FOR_RATIO` (10k) to limit false positives.
+
+- **low_contributors** = contributor count (via `count_contributors`, the
+  per_page=1 + Link `rel="last"` trick). Baseline ~50. **Trip if stars > 10k
+  AND contributors < 10.** Bessemer's headline engagement metric.
+- **commit_staleness** = days since `pushed_at` ("higher is worse").
+  Baseline ~30d. **Trip if > 365d.** Missing `pushed_at` → value 0, untripped.
+- **low_issues** = `open_issues_count / stars`. Baseline ~0.02.
+  **Trip if stars > 10k AND ratio < 0.001.** A popular repo nobody files
+  issues against has no real users.
+
 ## 6. Scoring (`scoring.py`)
 
 Weighted contribution model. Each tripped signal contributes proportionally to
@@ -146,15 +162,18 @@ Default weights (sum 100):
 
 | Signal             | Weight |
 |--------------------|--------|
-| fork_to_star       | 23     |
-| zero_followers_pct | 16     |
-| watcher_to_star    | 12     |
-| ghost_pct          | 12     |
-| suspicious_pct     | 12     |
-| zero_repos_pct     | 9      |
-| young_median_age   | 7      |
+| fork_to_star       | 20     |
+| zero_followers_pct | 14     |
+| suspicious_pct     | 11     |
+| watcher_to_star    | 10     |
+| ghost_pct          | 10     |
+| zero_repos_pct     | 8      |
+| low_contributors   | 7      |
+| young_median_age   | 6      |
 | temporal_burst     | 5      |
-| zero_following_pct | 4      |
+| commit_staleness   | 4      |
+| zero_following_pct | 3      |
+| low_issues         | 2      |
 
 `zero_followers_pct` is weighted highest among the profile signals: the
 source investigation shows it is the single most discriminating profile
@@ -163,7 +182,10 @@ intersection (no repos AND no followers AND no bio) and under-detects aged
 accounts that carry a bio, so it is down-weighted in favour of
 `zero_followers_pct` / `zero_repos_pct`. `young_median_age` ("lower is worse",
 median sampled account age in days, threshold 730) catches young campaigns
-that the emptiness fingerprints miss.
+that the emptiness fingerprints miss. The engagement signals
+(`low_contributors`, `commit_staleness`, `low_issues`) get modest weights —
+they corroborate rather than dominate, since legitimate projects vary widely
+in team size and issue-tracker discipline.
 
 Verdict bands:
 

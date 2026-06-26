@@ -17,13 +17,17 @@ def test_parse_args_defaults():
 
 
 class FakeClient:
-    def __init__(self, repo, users, timestamps, fail=None):
+    def __init__(self, repo, users, timestamps, fail=None, contributors=50):
         self._repo, self._users, self._ts, self._fail = repo, users, timestamps, fail
+        self._contributors = contributors
 
     def get_repo(self, o, r):
         if self._fail == "404":
             raise RepoNotFound("x")
         return self._repo
+
+    def count_contributors(self, o, r):
+        return self._contributors
 
     def iter_stargazers(self, o, r, with_timestamps=False, max_pages=None):
         # temporal detector path (timestamps only)

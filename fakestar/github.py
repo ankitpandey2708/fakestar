@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -83,6 +84,21 @@ class GitHubClient:
         url = (f"{API}/repos/{owner}/{repo}/stargazers"
                f"?per_page={per_page}&page={page}")
         return self._request(url).json()
+
+    def count_contributors(self, owner: str, repo: str) -> int:
+        """Total contributors (capped by GitHub at ~500).
+
+        Uses the per_page=1 + Link `rel="last"` trick: the last page number
+        equals the contributor count, so we learn the count from one request.
+        """
+        resp = self._request(
+            f"{API}/repos/{owner}/{repo}/contributors?per_page=1&anon=true")
+        last = resp.links.get("last")
+        if last:
+            m = re.search(r"[?&]page=(\d+)", last["url"])
+            if m:
+                return int(m.group(1))
+        return len(resp.json())  # 0 or 1 contributor (no pagination)
 
     def iter_stargazers(
         self, owner: str, repo: str,
