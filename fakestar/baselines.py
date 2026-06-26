@@ -5,6 +5,9 @@ from __future__ import annotations
 # 6-12% vs manipulated 52-81%). ghost_pct is reduced: it is the strict
 # intersection (no repos AND no followers AND no bio) and under-detects aged
 # accounts that carry a bio, which zero_followers_pct / zero_repos_pct now catch.
+# Note for tuners: ghost_pct ⊆ (zero_followers_pct ∩ zero_repos_pct), so these
+# three are correlated and stack on a fake repo — kept deliberately (scores cap
+# at 100, severities are proportional); don't re-inflate ghost_pct's weight.
 WEIGHTS: dict[str, int] = {
     "fork_to_star": 25,
     "zero_followers_pct": 18,
