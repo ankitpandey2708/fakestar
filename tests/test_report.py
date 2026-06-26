@@ -29,27 +29,37 @@ def _healthy_verdict():
     return Verdict(0, "LIKELY ORGANIC", sigs, 130, "zuplo/zudoku", [])
 
 
-def test_render_text_plain_view_groups_flags():
+def test_render_text_grouped_view_marks_flags():
     out = render_text(_verdict(), color=False)
     assert "LIKELY MANIPULATED" in out
     assert "72" in out
-    assert "Red flags (2):" in out
-    # friendly labels, not raw signal names, and direction spelled out
-    assert "Forks (per 1k stars)" in out
-    assert "Stargazers with 0 followers" not in out  # not in this verdict
+    assert "2 red flag(s)" in out
+    # themed group headers give structure
+    assert "Who starred it:" in out
+    assert "Is the code actually used:" in out
+    # friendly labels + FLAG marker + trip condition in words
+    assert "FLAG" in out
     assert "Empty 'ghost' accounts" in out
-    assert "healthy: under 10%" in out      # ghost_pct, "lower is worse"
-    assert "healthy: over 50 per 1k" in out  # fork_to_star, "higher is worse"
+    assert "Forks (per 1k stars)" in out
+    assert "flag if over 10%" in out       # ghost_pct, higher is worse
+    assert "flag if under 50 per 1k" in out  # fork_to_star, lower is worse
     assert "fork_to_star" not in out         # raw name hidden in default view
     assert "temporal skipped" in out
     assert "\x1b[" not in out
 
 
-def test_render_text_no_flags_message():
+def test_render_text_no_flags_summary():
     out = render_text(_healthy_verdict(), color=False)
-    assert "No red flags. All 2 checks look healthy" in out
+    assert "no red flags - all 2 checks healthy" in out
+    assert "FLAG" not in out          # nothing tripped
+    assert "OK" in out                # every line marked OK
     assert "Forks (per 1k stars)" in out
-    assert "(healthy:" not in out  # no safe-line hints on healthy rows
+    assert "flag if under 50 per 1k" in out  # context shown on healthy rows too
+
+
+def test_render_text_colorizes_band_only_when_enabled():
+    assert "\x1b[" in render_text(_verdict(), color=True)
+    assert "\x1b[" not in render_text(_verdict(), color=False)
 
 
 def test_render_text_verbose_shows_raw_table():
@@ -57,3 +67,4 @@ def test_render_text_verbose_shows_raw_table():
     assert "fork_to_star" in out          # raw names
     assert "THRESH" in out                # raw columns
     assert "Forks (per 1k stars)" not in out
+    assert "Who starred it" not in out    # grouped view suppressed in verbose

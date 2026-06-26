@@ -12,24 +12,30 @@ _BAND_COLOR = {
     "LIKELY MANIPULATED": _RED,
 }
 
-# Presentation metadata per signal: (friendly label, healthy direction, formatter).
-# "good" = which way is healthy ("low" or "high") — lets us phrase the safe line
-# as "healthy: under/over X" so the reader never has to reason about < or >.
-_META: dict[str, tuple[str, str, str]] = {
-    "fork_to_star":       ("Forks (per 1k stars)",         "high", "per_k"),
-    "watcher_to_star":    ("Watchers (per 1k stars)",      "high", "per_k"),
-    "ghost_pct":          ("Empty 'ghost' accounts",       "low",  "pct"),
-    "suspicious_pct":     ("New low-activity accounts",    "low",  "pct"),
-    "zero_followers_pct": ("Stargazers with 0 followers",  "low",  "pct"),
-    "zero_repos_pct":     ("Stargazers with 0 repos",      "low",  "pct"),
-    "zero_following_pct": ("Stargazers following nobody",  "low",  "pct"),
-    "young_median_age":   ("Median stargazer account age", "high", "days"),
-    "temporal_burst":     ("Biggest 1-day star burst",     "low",  "pct"),
-    "low_contributors":   ("Contributors",                 "high", "count"),
-    "commit_staleness":   ("Days since last commit",       "low",  "days"),
-    "low_issues":         ("Open issues (per 1k stars)",   "high", "per_k"),
+# Presentation metadata per signal: (label, healthy direction, formatter, group).
+# "good" = which way is healthy ("low" or "high"); it lets us phrase the trip
+# condition in words ("flag if over/under X") so the reader never decodes < / >.
+_META: dict[str, tuple[str, str, str, str]] = {
+    # group: who starred it
+    "ghost_pct":          ("Empty 'ghost' accounts",       "low",  "pct",   "Who starred it"),
+    "suspicious_pct":     ("New low-activity accounts",    "low",  "pct",   "Who starred it"),
+    "zero_followers_pct": ("Stargazers with 0 followers",  "low",  "pct",   "Who starred it"),
+    "zero_repos_pct":     ("Stargazers with 0 repos",      "low",  "pct",   "Who starred it"),
+    "zero_following_pct": ("Stargazers following nobody",  "low",  "pct",   "Who starred it"),
+    "young_median_age":   ("Median account age",           "high", "days",  "Who starred it"),
+    "temporal_burst":     ("Biggest 1-day star burst",     "low",  "pct",   "Who starred it"),
+    # group: is the code actually used
+    "fork_to_star":       ("Forks (per 1k stars)",         "high", "per_k", "Is the code actually used"),
+    "watcher_to_star":    ("Watchers (per 1k stars)",      "high", "per_k", "Is the code actually used"),
+    "low_issues":         ("Open issues (per 1k stars)",   "high", "per_k", "Is the code actually used"),
+    # group: is the project real & active
+    "low_contributors":   ("Contributors",                 "high", "count", "Is the project real & active"),
+    "commit_staleness":   ("Days since last commit",       "low",  "days",  "Is the project real & active"),
 }
-_LABEL_W = 32
+_GROUP_ORDER = ["Who starred it", "Is the code actually used", "Is the project real & active"]
+_OTHER = "Other checks"
+_LABEL_W = 30
+_VALUE_W = 11
 
 
 def render_json(verdict: Verdict) -> str:
@@ -54,17 +60,17 @@ def _fmt(value: float, kind: str) -> str:
     return f"{value:.0f}"  # count
 
 
-def _meta(name: str) -> tuple[str, str, str]:
-    return _META.get(name, (name, "low", "count"))
+def _meta(name: str) -> tuple[str, str, str, str]:
+    return _META.get(name, (name, "low", "count", _OTHER))
 
 
-def _row(s: Signal, with_hint: bool) -> str:
-    label, good, kind = _meta(s.name)
-    line = f"  - {label:<{_LABEL_W}}{_fmt(s.value, kind)}"
-    if with_hint:
-        word = "under" if good == "low" else "over"
-        line += f"   (healthy: {word} {_fmt(s.threshold, kind)})"
-    return line
+def _row(s: Signal) -> str:
+    label, good, kind, _group = _meta(s.name)
+    marker = "FLAG" if s.tripped else "OK"
+    value = _fmt(s.value, kind)
+    word = "over" if good == "low" else "under"  # which direction trips it
+    hint = f"(flag if {word} {_fmt(s.threshold, kind)})"
+    return f"  {marker:<4}  {label:<{_LABEL_W}}{value:<{_VALUE_W}}  {hint}"
 
 
 def _detailed_table(verdict: Verdict) -> list[str]:
@@ -74,6 +80,29 @@ def _detailed_table(verdict: Verdict) -> list[str]:
         mark = "YES" if s.tripped else "no"
         lines.append(
             f"{s.name:<18}{s.value:>10}{s.baseline:>10}{s.threshold:>10}  {mark}")
+    return lines
+
+
+def _grouped(verdict: Verdict) -> list[str]:
+    flagged = sum(1 for s in verdict.signals if s.tripped)
+    total = len(verdict.signals)
+    if flagged:
+        summary = f"Result:  {flagged} red flag(s) - look for FLAG below"
+    else:
+        summary = f"Result:  no red flags - all {total} checks healthy"
+
+    buckets: dict[str, list[Signal]] = {}
+    for s in verdict.signals:
+        buckets.setdefault(_meta(s.name)[3], []).append(s)
+
+    lines = [summary, ""]
+    for group in _GROUP_ORDER + [_OTHER]:
+        rows = buckets.get(group)
+        if not rows:
+            continue
+        lines.append(f"{group}:")
+        lines += [_row(s) for s in rows]
+        lines.append("")
     return lines
 
 
@@ -87,28 +116,13 @@ def render_text(verdict: Verdict, color: bool = False, detailed: bool = False) -
         f"Sample:  {verdict.sample_size} stargazers analyzed",
         "",
     ]
-
-    if detailed:
-        lines += _detailed_table(verdict)
-    else:
-        flagged = [s for s in verdict.signals if s.tripped]
-        healthy = [s for s in verdict.signals if not s.tripped]
-        if flagged:
-            lines.append(f"Red flags ({len(flagged)}):")
-            lines += [_row(s, with_hint=True) for s in flagged]
-            if healthy:
-                lines += ["", f"Looks healthy ({len(healthy)}):"]
-                lines += [_row(s, with_hint=False) for s in healthy]
-        else:
-            lines.append(f"No red flags. All {len(healthy)} checks look healthy:")
-            lines += [_row(s, with_hint=False) for s in healthy]
+    lines += _detailed_table(verdict) if detailed else _grouped(verdict)
 
     caveats = [s.caveat for s in verdict.signals if s.caveat]
     if caveats or verdict.notes:
-        lines.append("")
         lines.append("Notes:")
         for n in verdict.notes:
             lines.append(f"  - {n}")
         for c in dict.fromkeys(caveats):  # dedupe, keep order
             lines.append(f"  - {c}")
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip() + "\n"

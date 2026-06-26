@@ -127,48 +127,57 @@ A repo that returns `404` is scored as deleted (a strong manipulation signal —
 ## Reading a result (worked example, in plain English)
 
 Think of a repo's stars as **people who clapped** for a project. The tool asks:
-*are these real fans, or paid actors?* You don't have to interpret any numbers —
-each check is grouped as a **red flag** or **healthy**, and flagged lines spell
-out the safe range in words. Here's a real run on `zuplo/zudoku`:
+*are these real fans, or paid actors?* You don't have to interpret any numbers.
+Every check is **grouped by theme**, marked **OK** or **FLAG**, and shows in
+plain words what *would* make it a flag (`flag if over/under X`) — no thresholds
+or `<`/`>` to decode. Here's a real run on `zuplo/zudoku`:
 
 ```
 Repo:    zuplo/zudoku
 Verdict: LIKELY ORGANIC   (risk 0 / 100)
 Sample:  130 stargazers analyzed
 
-No red flags. All 12 checks look healthy:
-  - Forks (per 1k stars)            151 per 1k
-  - Watchers (per 1k stars)         11 per 1k
-  - Empty 'ghost' accounts          0%
-  - New low-activity accounts       0%
-  - Stargazers with 0 followers     5%
-  - Stargazers with 0 repos         3%
-  - Stargazers following nobody     5%
-  - Median stargazer account age    3823 days
-  - Biggest 1-day star burst        0%
-  - Contributors                    47
-  - Days since last commit          0 days
-  - Open issues (per 1k stars)      115 per 1k
+Result:  no red flags - all 12 checks healthy
+
+Who starred it:
+  OK    Empty 'ghost' accounts        0%           (flag if over 10%)
+  OK    New low-activity accounts     0%           (flag if over 15%)
+  OK    Stargazers with 0 followers   5%           (flag if over 35%)
+  OK    Stargazers with 0 repos       3%           (flag if over 20%)
+  OK    Stargazers following nobody   5%           (flag if over 55%)
+  OK    Median account age            3823 days    (flag if under 730 days)
+  OK    Biggest 1-day star burst      0%           (flag if over 30%)
+
+Is the code actually used:
+  OK    Forks (per 1k stars)          151 per 1k   (flag if under 50 per 1k)
+  OK    Watchers (per 1k stars)       11 per 1k    (flag if under 2 per 1k)
+  OK    Open issues (per 1k stars)    115 per 1k   (flag if under 1 per 1k)
+
+Is the project real & active:
+  OK    Contributors                  47           (flag if under 10)
+  OK    Days since last commit        0 days       (flag if over 365 days)
 ```
 
-The lower the **risk score**, the more genuine the repo (0 = squeaky clean,
-100 = almost certainly manipulated). zudoku scores **0** — every check passed.
+Read it top-down: the **risk score** (0 = squeaky clean, 100 = almost certainly
+manipulated), then scan the left column for any **FLAG**. zudoku is all **OK**.
 
-When something *does* look off, that check moves to a **Red flags** section with
-the safe range written out — no thresholds or `<`/`>` to decode:
+When something *is* off, that line is marked **FLAG** and the count appears in
+the `Result:` line, so problems jump out:
 
 ```
 Verdict: LIKELY MANIPULATED   (risk 72 / 100)
 Sample:  150 stargazers analyzed
 
-Red flags (3):
-  - Stargazers with 0 followers     81%   (healthy: under 35%)
-  - Forks (per 1k stars)            20 per 1k   (healthy: over 50 per 1k)
-  - Biggest 1-day star burst        60%   (healthy: under 30%)
+Result:  3 red flag(s) - look for FLAG below
 
-Looks healthy (2):
-  - Watchers (per 1k stars)         9 per 1k
-  - Contributors                    120
+Who starred it:
+  FLAG  Stargazers with 0 followers   81%          (flag if over 35%)
+  OK    Empty 'ghost' accounts        4%           (flag if over 10%)
+  FLAG  Biggest 1-day star burst      60%          (flag if over 30%)
+  ...
+Is the code actually used:
+  FLAG  Forks (per 1k stars)          20 per 1k    (flag if under 50 per 1k)
+  ...
 ```
 
 What each check is really asking:
