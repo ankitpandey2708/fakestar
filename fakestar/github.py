@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 API = "https://api.github.com"
@@ -29,7 +30,7 @@ MAX_RATE_LIMIT_WAITS = 5
 
 class GitHubClient:
     def __init__(self, token: str | None = None, session=None, sleeper=time.sleep,
-                 wait: bool = False):
+                 wait: bool = False, timeout: float = 15.0):
         if session is None:
             import requests
             session = requests.Session()
@@ -37,6 +38,7 @@ class GitHubClient:
         self._token = token
         self._sleep = sleeper
         self._wait = wait
+        self._timeout = timeout
 
     @staticmethod
     def _seconds_until(reset_ts: int) -> int:
@@ -53,7 +55,8 @@ class GitHubClient:
         server_attempts = 0
         rate_waits = 0
         while True:
-            resp = self._session.get(url, headers=self._headers(accept))
+            resp = self._session.get(url, headers=self._headers(accept),
+                                     timeout=self._timeout)
             status = resp.status_code
             if status == 404:
                 raise RepoNotFound(url)
@@ -77,6 +80,25 @@ class GitHubClient:
 
     def get_user(self, login: str) -> dict[str, Any]:
         return self._request(f"{API}/users/{login}").json()
+
+    def get_users(self, logins: list[str], workers: int = 8) -> dict[str, dict[str, Any]]:
+        """Fetch many user profiles concurrently (I/O-bound → threads).
+
+        Returns {login: user}. Accounts that 404 (deleted/renamed) are skipped.
+        RateLimited / GitHubServerError propagate so the caller can react.
+        """
+        users: dict[str, dict[str, Any]] = {}
+        if not logins:
+            return users
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+            futures = {pool.submit(self.get_user, lg): lg for lg in logins}
+            for fut in as_completed(futures):
+                login = futures[fut]
+                try:
+                    users[login] = fut.result()
+                except RepoNotFound:
+                    continue  # account gone — skip
+        return users
 
     def get_stargazer_page(
         self, owner: str, repo: str, page: int, per_page: int = 100,

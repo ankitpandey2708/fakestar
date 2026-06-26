@@ -63,6 +63,28 @@ def test_empty_sample_is_safe():
     assert all(s.tripped is False for s in sigs)
 
 
+def test_uses_get_users_when_client_provides_it():
+    # When the client exposes get_users (the real client's concurrent path),
+    # analyze_profiles should use it instead of sequential get_user.
+    users = [_user(f"g{i}", 1000, 0, 0, "") for i in range(10)]
+    by_login = {u["login"]: u for u in users}
+
+    class ParallelClient:
+        def get_stargazer_page(self, owner, repo, page, per_page=100):
+            return [{"login": u["login"]} for u in users]
+
+        def get_users(self, logins, workers=8):
+            return {lg: by_login[lg] for lg in logins}
+
+        def get_user(self, login):  # should NOT be called
+            raise AssertionError("get_user used despite get_users being available")
+
+    sigs = {s.name: s for s in analyze_profiles(
+        ParallelClient(), "o", "r", sample=10, now=NOW)}
+    assert sigs["ghost_pct"].value == 1.0
+    assert sigs["ghost_pct"].tripped is True
+
+
 def test_aged_empty_accounts_with_bio_are_caught():
     # Aged (1100d), zero repos, zero followers, but WITH a bio: these escape
     # both ghost (has bio) and suspicious (too old) — the blog's emphasized

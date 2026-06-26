@@ -83,11 +83,19 @@ fakestar-check any/repo --ratios-only     # 1 API call, no sampling
 | `--sample N` | 150 | stargazer profiles to sample |
 | `--timeline-pages N` | 40 | star-timeline pages to fetch |
 | `--ratios-only` | off | skip profile + temporal detectors |
+| `--workers N` | 8 | parallel workers for stargazer profile fetching |
 | `--json` | off | emit JSON instead of a text report |
 | `--wait` | off | sleep until the rate-limit window resets and retry, instead of erroring out |
 
 ### Exit codes
 `0` LIKELY ORGANIC · `1` SUSPICIOUS · `2` LIKELY MANIPULATED · `3` error (e.g. rate-limited)
+
+### Performance & progress
+A full run fetches ~150 stargazer profiles plus the timeline — these profile
+fetches run **concurrently** (`--workers`, default 8), cutting a ~60s run to a
+few seconds. When attached to a terminal, the tool prints progress to stderr
+(`… Sampling 150 stargazer profiles…`); this is suppressed for pipes/`--json`.
+All HTTP requests use a 15s timeout so a stalled network can't hang the run.
 
 ---
 

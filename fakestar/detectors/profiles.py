@@ -80,7 +80,7 @@ def _select_pages(total_pages: int, n_pages: int) -> list[int]:
 
 def analyze_profiles(
     client, owner: str, repo: str, total_stars: int | None = None,
-    sample: int = 150, now: datetime | None = None,
+    sample: int = 150, now: datetime | None = None, workers: int = 8,
 ) -> list[Signal]:
     now = now or datetime.now(timezone.utc)
 
@@ -103,11 +103,18 @@ def analyze_profiles(
         if len(logins) >= sample:
             break
 
+    # Fetch the sampled profiles. The real client fetches them concurrently via
+    # get_users; test fakes that only expose get_user fall back to sequential.
+    get_many = getattr(client, "get_users", None)
+    if get_many is not None:
+        users = list(get_many(logins, workers=workers).values())
+    else:
+        users = [client.get_user(login) for login in logins]
+
     ghosts = suspicious = zero_followers = zero_repos = zero_following = 0
     ages: list[int] = []
     counted = 0
-    for login in logins:
-        user = client.get_user(login)
+    for user in users:
         g, s = classify_account(user, now)
         ghosts += g
         suspicious += s

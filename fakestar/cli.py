@@ -16,6 +16,13 @@ from .scoring import score_signals
 _EXIT = {"LIKELY ORGANIC": 0, "SUSPICIOUS": 1, "LIKELY MANIPULATED": 2}
 
 
+def _progress(msg: str) -> None:
+    # Status to stderr, only on an interactive terminal — keeps --json/stdout
+    # clean and test output pristine (pytest's stderr isn't a tty).
+    if sys.stderr.isatty():
+        print(f"… {msg}", file=sys.stderr, flush=True)
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="fakestar-check",
@@ -28,6 +35,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                    help="star-timeline pages to fetch (default 40)")
     p.add_argument("--ratios-only", action="store_true",
                    help="skip profile and temporal detectors")
+    p.add_argument("--workers", type=int, default=8,
+                   help="parallel workers for stargazer profile fetching (default 8)")
     p.add_argument("--json", action="store_true", help="emit JSON")
     p.add_argument("--wait", action="store_true",
                    help="sleep through rate-limit windows")
@@ -38,6 +47,7 @@ def run(args: argparse.Namespace, client) -> Verdict:
     owner, _, repo = args.repo.partition("/")
     notes: list[str] = []
 
+    _progress(f"Fetching {args.repo} metadata…")
     try:
         repo_data = client.get_repo(owner, repo)
     except RepoNotFound:
@@ -52,22 +62,27 @@ def run(args: argparse.Namespace, client) -> Verdict:
 
     if not args.ratios_only:
         try:
+            _progress(f"Sampling {args.sample} stargazer profiles "
+                      f"({args.workers} workers)…")
             signals += analyze_profiles(
                 client, owner, repo,
                 total_stars=repo_data.get("stargazers_count", 0),
-                sample=args.sample)
+                sample=args.sample, workers=args.workers)
             sampled = args.sample
         except Exception as e:  # tolerate detector failure
             notes.append(f"Profile sampling skipped: {e}")
         try:
+            _progress("Analyzing star timeline…")
             signals += analyze_temporal(client, owner, repo,
                                         max_pages=args.timeline_pages)
         except Exception as e:
             notes.append(f"Temporal analysis skipped: {e}")
         try:
+            _progress("Checking contributors & engagement…")
             signals += analyze_engagement(client, owner, repo, repo_data)
         except Exception as e:
             notes.append(f"Engagement analysis skipped: {e}")
+    _progress("Scoring…")
 
     return score_signals(signals, repo=args.repo, sample_size=sampled,
                          notes=notes)

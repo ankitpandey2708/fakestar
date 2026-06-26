@@ -20,9 +20,21 @@ class FakeSession:
         self._responses = list(responses)
         self.urls = []
 
-    def get(self, url, headers=None):
+    def get(self, url, headers=None, timeout=None):
         self.urls.append(url)
         return self._responses.pop(0)
+
+
+class UserSession:
+    """Stateless, thread-safe: responds per user login parsed from the URL."""
+    def __init__(self, missing=()):
+        self._missing = set(missing)
+
+    def get(self, url, headers=None, timeout=None):
+        login = url.rstrip("/").split("/")[-1]
+        if login in self._missing:
+            return FakeResp(404, {})
+        return FakeResp(200, {"login": login, "followers": 1})
 
 
 def test_get_repo_returns_json():
@@ -38,6 +50,19 @@ def test_get_stargazer_page_builds_url_with_page():
     assert page == [{"login": "a"}]
     assert "page=3" in sess.urls[0]
     assert "per_page=100" in sess.urls[0]
+
+
+def test_get_users_fetches_all_concurrently():
+    c = GitHubClient(token="t", session=UserSession())
+    out = c.get_users(["a", "b", "c"], workers=3)
+    assert set(out) == {"a", "b", "c"}
+    assert out["b"]["login"] == "b"
+
+
+def test_get_users_skips_404_accounts():
+    c = GitHubClient(token="t", session=UserSession(missing={"ghost"}))
+    out = c.get_users(["a", "ghost", "b"], workers=2)
+    assert set(out) == {"a", "b"}  # deleted account dropped, others kept
 
 
 def test_count_contributors_reads_last_page_number():
