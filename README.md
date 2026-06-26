@@ -117,7 +117,11 @@ A repo that returns `404` is scored as deleted (a strong manipulation signal —
 
 ## Caveats
 - **First-pass filter, not proof.** Curated lists, docs, and tutorial repos
-  naturally have low fork/watcher ratios and may false-positive.
+  naturally have low fork/watcher ratios — and often few contributors, no
+  issue tracker, and infrequent pushes — so they can trip the ratio and
+  engagement signals despite being legitimate. The modest engagement weights
+  mean these alone won't reach LIKELY MANIPULATED, but treat such repos with
+  judgment.
 - Profile sampling reflects accounts' *current* state; accounts deleted since the
   star event aren't counted, so old campaigns are under-counted.
 - Thresholds are tunable defaults derived from a small sample, not ground truth.

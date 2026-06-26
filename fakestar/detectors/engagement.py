@@ -47,7 +47,9 @@ def analyze_engagement(
         "low_contributors", float(contributors), c_tripped, c_sev,
         f"{contributors} contributors for {stars} stars")
 
-    # commit_staleness — higher is worse (days since last push)
+    # commit_staleness — higher is worse (days since last push).
+    # Intentionally NOT gated on star count: a dead repo is informative at any
+    # size (unlike the ratio signals, which need scale to be meaningful).
     s_thr = THRESHOLDS["commit_staleness"]
     if pushed_at:
         stale_days = (now - _parse_dt(pushed_at)).days
@@ -60,7 +62,10 @@ def analyze_engagement(
     commit_staleness = _signal(
         "commit_staleness", float(stale_days), s_tripped, s_sev, s_detail)
 
-    # low_issues — lower is worse (open_issues / stars); high-star repos only
+    # low_issues — lower is worse (open_issues / stars); high-star repos only.
+    # Note: GitHub's open_issues_count includes open PRs, so this is a coarse
+    # proxy — hence the low weight. Near-zero on a popular repo still signals
+    # "nobody actually uses this."
     i_thr = THRESHOLDS["low_issues"]
     issues_ratio = open_issues / stars if stars else 0.0
     i_tripped = big and issues_ratio < i_thr
