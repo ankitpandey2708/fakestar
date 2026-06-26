@@ -61,7 +61,7 @@ def analyze_profiles(
 ) -> list[Signal]:
     now = now or datetime.now(timezone.utc)
 
-    if total_stars and total_stars > 0:
+    if total_stars is not None and total_stars > 0:
         total_pages = max(1, ceil(total_stars / PER_PAGE))
     else:
         total_pages = max(1, ceil(sample / PER_PAGE))
@@ -72,7 +72,7 @@ def analyze_profiles(
     logins: list[str] = []
     for page in pages:
         taken = 0
-        for item in client.get_stargazer_page(owner, repo, page):
+        for item in client.get_stargazer_page(owner, repo, page, per_page=PER_PAGE):
             logins.append(item["login"])
             taken += 1
             if taken >= per_page_take or len(logins) >= sample:
