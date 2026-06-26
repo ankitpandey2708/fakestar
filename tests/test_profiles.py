@@ -33,9 +33,9 @@ class FakeClient:
     def __init__(self, users):
         self._users = users
 
-    def iter_stargazers(self, owner, repo, max_pages=None):
-        for u in self._users:
-            yield {"login": u["login"]}
+    def get_stargazer_page(self, owner, repo, page, per_page=100):
+        start = (page - 1) * per_page
+        return [{"login": u["login"]} for u in self._users[start:start + per_page]]
 
     def get_user(self, login):
         return next(u for u in self._users if u["login"] == login)
@@ -61,3 +61,26 @@ def test_analyze_profiles_clean_repo_untripped():
 def test_empty_sample_is_safe():
     sigs = analyze_profiles(FakeClient([]), "o", "r", sample=10, now=NOW)
     assert all(s.tripped is False for s in sigs)
+
+
+def test_sampling_spans_recent_pages_not_just_first():
+    # 1000 stars => 10 pages. Page 1 is all clean devs; the LAST page is all
+    # ghosts (a recent campaign). Sampling only page 1 would see 0% ghosts and
+    # miss it; spread sampling must pull from the last page too.
+    clean = [_user(f"r{i}", 3000, 30, 50, "dev") for i in range(100)]   # page 1
+    ghosts = [_user(f"g{i}", 1000, 0, 0, "") for i in range(100)]       # page 10
+    by_login = {u["login"]: u for u in clean + ghosts}
+    pages = {1: clean, 10: ghosts}
+
+    class PagedClient:
+        def get_stargazer_page(self, owner, repo, page, per_page=100):
+            return [{"login": u["login"]} for u in pages.get(page, [])]
+
+        def get_user(self, login):
+            return by_login[login]
+
+    sigs = {s.name: s for s in analyze_profiles(
+        PagedClient(), "o", "r", total_stars=1000, sample=150, now=NOW)}
+    # sample=150 over 10 pages -> 2 pages [1, 10], 75 from each -> half ghosts
+    assert sigs["ghost_pct"].value == 0.5
+    assert sigs["ghost_pct"].tripped is True

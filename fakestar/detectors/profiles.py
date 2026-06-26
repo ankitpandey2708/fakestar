@@ -37,15 +37,46 @@ def _pct_signal(name: str, value: float) -> Signal:
     )
 
 
+PER_PAGE = 100
+
+
+def _select_pages(total_pages: int, n_pages: int) -> list[int]:
+    """Pick n_pages page numbers spread evenly across [1, total_pages].
+
+    Always includes the first and last page so the sample spans the oldest
+    and the most recent stargazers (where a bought-star campaign is most
+    likely to show up), rather than only the chronologically-oldest stars on
+    page 1.
+    """
+    n_pages = max(1, min(n_pages, total_pages))
+    if n_pages == 1:
+        return [1]
+    return sorted({1 + round(i * (total_pages - 1) / (n_pages - 1))
+                   for i in range(n_pages)})
+
+
 def analyze_profiles(
-    client, owner: str, repo: str, sample: int = 150, now: datetime | None = None,
+    client, owner: str, repo: str, total_stars: int | None = None,
+    sample: int = 150, now: datetime | None = None,
 ) -> list[Signal]:
     now = now or datetime.now(timezone.utc)
-    max_pages = max(1, ceil(sample / 100))
+
+    if total_stars and total_stars > 0:
+        total_pages = max(1, ceil(total_stars / PER_PAGE))
+    else:
+        total_pages = max(1, ceil(sample / PER_PAGE))
+    n_pages = min(total_pages, max(1, ceil(sample / PER_PAGE)))
+    pages = _select_pages(total_pages, n_pages)
+    per_page_take = ceil(sample / len(pages))
 
     logins: list[str] = []
-    for item in client.iter_stargazers(owner, repo, max_pages=max_pages):
-        logins.append(item["login"])
+    for page in pages:
+        taken = 0
+        for item in client.get_stargazer_page(owner, repo, page):
+            logins.append(item["login"])
+            taken += 1
+            if taken >= per_page_take or len(logins) >= sample:
+                break
         if len(logins) >= sample:
             break
 

@@ -51,7 +51,10 @@ def run(args: argparse.Namespace, client) -> Verdict:
 
     if not args.ratios_only:
         try:
-            signals += analyze_profiles(client, owner, repo, sample=args.sample)
+            signals += analyze_profiles(
+                client, owner, repo,
+                total_stars=repo_data.get("stargazers_count", 0),
+                sample=args.sample)
             sampled = args.sample
         except Exception as e:  # tolerate detector failure
             notes.append(f"Profile sampling skipped: {e}")

@@ -31,6 +31,15 @@ def test_get_repo_returns_json():
     assert c.get_repo("o", "r")["stargazers_count"] == 100
 
 
+def test_get_stargazer_page_builds_url_with_page():
+    sess = FakeSession([FakeResp(200, [{"login": "a"}])])
+    c = GitHubClient(token="t", session=sess)
+    page = c.get_stargazer_page("o", "r", 3)
+    assert page == [{"login": "a"}]
+    assert "page=3" in sess.urls[0]
+    assert "per_page=100" in sess.urls[0]
+
+
 def test_get_repo_404_raises():
     sess = FakeSession([FakeResp(404, {"message": "Not Found"})])
     c = GitHubClient(token="t", session=sess)

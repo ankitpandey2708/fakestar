@@ -59,6 +59,13 @@ class GitHubClient:
     def get_user(self, login: str) -> dict[str, Any]:
         return self._request(f"{API}/users/{login}").json()
 
+    def get_stargazer_page(
+        self, owner: str, repo: str, page: int, per_page: int = 100,
+    ) -> list[dict[str, Any]]:
+        url = (f"{API}/repos/{owner}/{repo}/stargazers"
+               f"?per_page={per_page}&page={page}")
+        return self._request(url).json()
+
     def iter_stargazers(
         self, owner: str, repo: str,
         with_timestamps: bool = False, max_pages: int | None = None,

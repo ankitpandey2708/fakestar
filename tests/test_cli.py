@@ -26,12 +26,13 @@ class FakeClient:
         return self._repo
 
     def iter_stargazers(self, o, r, with_timestamps=False, max_pages=None):
-        if with_timestamps:
-            for t in self._ts:
-                yield {"starred_at": t, "user": {"login": "x"}}
-        else:
-            for u in self._users:
-                yield {"login": u["login"]}
+        # temporal detector path (timestamps only)
+        for t in self._ts:
+            yield {"starred_at": t, "user": {"login": "x"}}
+
+    def get_stargazer_page(self, o, r, page, per_page=100):
+        start = (page - 1) * per_page
+        return [{"login": u["login"]} for u in self._users[start:start + per_page]]
 
     def get_user(self, login):
         return next(u for u in self._users if u["login"] == login)
