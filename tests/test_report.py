@@ -62,6 +62,16 @@ def test_render_text_colorizes_band_only_when_enabled():
     assert "\x1b[" not in render_text(_verdict(), color=False)
 
 
+def test_render_text_unknown_signal_falls_into_other_group():
+    # the 404 path emits a "repo_deleted" signal that isn't in _META
+    sigs = [Signal("repo_deleted", 1.0, 0.0, 0.0, 100, True, 1.0, "repo returns 404")]
+    v = Verdict(100, "LIKELY MANIPULATED", sigs, 0, "gone/repo", ["deleted"])
+    out = render_text(v, color=False)
+    assert "Other checks:" in out
+    assert "repo_deleted" in out  # falls back to the raw name as label
+    assert "FLAG" in out
+
+
 def test_render_text_verbose_shows_raw_table():
     out = render_text(_verdict(), color=False, detailed=True)
     assert "fork_to_star" in out          # raw names
