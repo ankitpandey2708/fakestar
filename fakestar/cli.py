@@ -38,6 +38,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--workers", type=int, default=8,
                    help="parallel workers for stargazer profile fetching (default 8)")
     p.add_argument("--json", action="store_true", help="emit JSON")
+    p.add_argument("--verbose", action="store_true",
+                   help="show the raw value/baseline/threshold table")
     p.add_argument("--wait", action="store_true",
                    help="sleep through rate-limit windows")
     return p.parse_args(argv)
@@ -108,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(render_json(verdict))
     else:
-        print(render_text(verdict, color=sys.stdout.isatty()))
+        print(render_text(verdict, color=sys.stdout.isatty(), detailed=args.verbose))
     return _EXIT.get(verdict.band, 3)
 
 

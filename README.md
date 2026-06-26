@@ -85,6 +85,7 @@ fakestar-check any/repo --ratios-only     # 1 API call, no sampling
 | `--ratios-only` | off | skip profile + temporal detectors |
 | `--workers N` | 8 | parallel workers for stargazer profile fetching |
 | `--json` | off | emit JSON instead of a text report |
+| `--verbose` | off | show the raw value/baseline/threshold table instead of the plain-English view |
 | `--wait` | off | sleep until the rate-limit window resets and retry, instead of erroring out |
 
 ### Exit codes
@@ -126,56 +127,75 @@ A repo that returns `404` is scored as deleted (a strong manipulation signal —
 ## Reading a result (worked example, in plain English)
 
 Think of a repo's stars as **people who clapped** for a project. The tool asks:
-*are these real fans, or paid actors?* Here's a real run on `zuplo/zudoku`:
+*are these real fans, or paid actors?* You don't have to interpret any numbers —
+each check is grouped as a **red flag** or **healthy**, and flagged lines spell
+out the safe range in words. Here's a real run on `zuplo/zudoku`:
 
 ```
 Repo:    zuplo/zudoku
-Verdict: LIKELY ORGANIC  (risk score 0/100)
-Sample:  130 stargazers
+Verdict: LIKELY ORGANIC   (risk 0 / 100)
+Sample:  130 stargazers analyzed
 
-SIGNAL                 VALUE  BASELINE    THRESH  TRIPPED
-------------------------------------------------------------
-fork_to_star          0.1514      0.16      0.05  no
-watcher_to_star       0.0108     0.015     0.002  no
-ghost_pct                0.0      0.01       0.1  no
-suspicious_pct           0.0       0.0      0.15  no
-zero_followers_pct    0.0538       0.1      0.35  no
-zero_repos_pct        0.0308      0.05       0.2  no
-zero_following_pct    0.0538       0.4      0.55  no
-young_median_age      3823.0    3000.0     730.0  no
-temporal_burst           0.0      0.05       0.3  no
-low_contributors        47.0      50.0      10.0  no
-commit_staleness         0.0      30.0     365.0  no
-low_issues           0.11532      0.02     0.001  no
+No red flags. All 12 checks look healthy:
+  - Forks (per 1k stars)            151 per 1k
+  - Watchers (per 1k stars)         11 per 1k
+  - Empty 'ghost' accounts          0%
+  - New low-activity accounts       0%
+  - Stargazers with 0 followers     5%
+  - Stargazers with 0 repos         3%
+  - Stargazers following nobody     5%
+  - Median stargazer account age    3823 days
+  - Biggest 1-day star burst        0%
+  - Contributors                    47
+  - Days since last commit          0 days
+  - Open issues (per 1k stars)      115 per 1k
 ```
 
-**How to read the columns:** `THRESH` is the "uh-oh line" — a signal only counts
-against the repo if `VALUE` crosses it (`TRIPPED = yes`). `BASELINE` is just what a
-typical organic repo looks like, for reference. Here nothing tripped, so the score
-is **0/100 → LIKELY ORGANIC** (higher score = more suspicious).
+The lower the **risk score**, the more genuine the repo (0 = squeaky clean,
+100 = almost certainly manipulated). zudoku scores **0** — every check passed.
 
-What each signal is really asking:
+When something *does* look off, that check moves to a **Red flags** section with
+the safe range written out — no thresholds or `<`/`>` to decode:
 
-| Signal | In plain English | zudoku |
-|--------|------------------|--------|
-| `fork_to_star` | Did people copy the code to actually use it? | Yes ✅ |
-| `watcher_to_star` | Did people subscribe for updates? | Yes ✅ |
-| `ghost_pct` | How many clappers are empty bot accounts (no repos/followers/bio)? | ~0% ✅ |
-| `suspicious_pct` | How many are brand-new, no-activity accounts? | 0% ✅ |
-| `zero_followers_pct` | How many have no friends on GitHub? (bought accounts usually don't) | 5% ✅ |
-| `zero_repos_pct` | How many have no projects of their own? | 3% ✅ |
-| `zero_following_pct` | How many follow nobody? (real devs follow people) | 5% ✅ |
-| `young_median_age` | How old are the accounts? (fakes are young) | ~10 years ✅ |
-| `temporal_burst` | Did stars arrive in one suspicious spike? | No, gradual ✅ |
-| `low_contributors` | Did real people help build it? | 47 contributors ✅ |
-| `commit_staleness` | Is the project still alive? | Updated today ✅ |
-| `low_issues` | Are real users filing bugs/questions? | Lots ✅ |
+```
+Verdict: LIKELY MANIPULATED   (risk 72 / 100)
+Sample:  150 stargazers analyzed
 
-**Bottom line:** real coders, with friends and their own projects, on decade-old
-accounts, starring gradually — plus an active project with real contributors and
-bug reports. No part of the story looks faked, so the verdict is confidently
-organic. A *manipulated* repo typically passes some checks but trips the
-profile ones hard (e.g. 50–80% zero-followers) — that mismatch is the giveaway.
+Red flags (3):
+  - Stargazers with 0 followers     81%   (healthy: under 35%)
+  - Forks (per 1k stars)            20 per 1k   (healthy: over 50 per 1k)
+  - Biggest 1-day star burst        60%   (healthy: under 30%)
+
+Looks healthy (2):
+  - Watchers (per 1k stars)         9 per 1k
+  - Contributors                    120
+```
+
+What each check is really asking:
+
+| Check | In plain English |
+|-------|------------------|
+| Forks (per 1k stars) | Do people copy the code to actually use it? |
+| Watchers (per 1k stars) | Do people subscribe for updates? |
+| Empty 'ghost' accounts | How many clappers are empty bot accounts (no repos/followers/bio)? |
+| New low-activity accounts | How many are brand-new, no-activity accounts? |
+| Stargazers with 0 followers | How many have no friends on GitHub? (bought accounts usually don't) |
+| Stargazers with 0 repos | How many have no projects of their own? |
+| Stargazers following nobody | How many follow nobody? (real devs follow people) |
+| Median stargazer account age | How old are the accounts? (fakes are young) |
+| Biggest 1-day star burst | Did stars arrive in one suspicious spike? |
+| Contributors | Did real people help build it? |
+| Days since last commit | Is the project still alive? |
+| Open issues (per 1k stars) | Are real users filing bugs/questions? |
+
+**Bottom line for zudoku:** real coders, with friends and their own projects, on
+decade-old accounts, starring gradually — plus an active project with real
+contributors and bug reports. Nothing looks faked, so the verdict is confidently
+organic. A *manipulated* repo typically passes some checks but trips the profile
+ones hard (e.g. 50–80% zero-followers) — that mismatch is the giveaway.
+
+> Want the raw numbers (exact value / baseline / threshold per signal)? Add
+> `--verbose` for the detailed table.
 
 ---
 
