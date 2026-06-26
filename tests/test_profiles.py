@@ -63,6 +63,37 @@ def test_empty_sample_is_safe():
     assert all(s.tripped is False for s in sigs)
 
 
+def test_aged_empty_accounts_with_bio_are_caught():
+    # Aged (1100d), zero repos, zero followers, but WITH a bio: these escape
+    # both ghost (has bio) and suspicious (too old) — the blog's emphasized
+    # blind spot. zero_followers_pct / zero_repos_pct must still catch them.
+    users = [_user(f"a{i}", 1100, 0, 0, "hi there") for i in range(10)]
+    sigs = {s.name: s for s in analyze_profiles(FakeClient(users), "o", "r",
+                                                sample=10, now=NOW)}
+    assert sigs["ghost_pct"].tripped is False
+    assert sigs["suspicious_pct"].tripped is False
+    assert sigs["zero_followers_pct"].value == 1.0
+    assert sigs["zero_followers_pct"].tripped is True
+    assert sigs["zero_repos_pct"].tripped is True
+
+
+def test_young_median_age_trips_even_when_accounts_look_active():
+    # Young accounts (120d) that are otherwise active (repos+followers) still
+    # trip the age signal — age is independent of the activity fingerprints.
+    users = [_user(f"n{i}", 120, 5, 5, "dev") for i in range(10)]
+    sigs = {s.name: s for s in analyze_profiles(FakeClient(users), "o", "r",
+                                                sample=10, now=NOW)}
+    assert sigs["young_median_age"].value == 120.0
+    assert sigs["young_median_age"].tripped is True
+
+
+def test_old_median_age_does_not_trip():
+    users = [_user(f"o{i}", 3000, 30, 50, "dev") for i in range(10)]
+    sigs = {s.name: s for s in analyze_profiles(FakeClient(users), "o", "r",
+                                                sample=10, now=NOW)}
+    assert sigs["young_median_age"].tripped is False
+
+
 def test_sampling_spans_recent_pages_not_just_first():
     # 1000 stars => 10 pages. Page 1 is all clean devs; the LAST page is all
     # ghosts (a recent campaign). Sampling only page 1 would see 0% ghosts and

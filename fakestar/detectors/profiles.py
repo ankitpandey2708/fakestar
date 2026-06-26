@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from math import ceil
+from statistics import median
 
 from ..baselines import BASELINES, THRESHOLDS, WEIGHTS
 from ..models import Signal
@@ -11,14 +12,17 @@ def _parse_dt(s: str) -> datetime:
     return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
+def _age_days(user: dict, now: datetime) -> int:
+    return (now - _parse_dt(user["created_at"])).days
+
+
 def classify_account(user: dict, now: datetime) -> tuple[bool, bool]:
     repos = user.get("public_repos", 0) or 0
     followers = user.get("followers", 0) or 0
     bio = (user.get("bio") or "").strip()
-    age_days = (now - _parse_dt(user["created_at"])).days
 
     is_ghost = repos == 0 and followers == 0 and not bio
-    is_suspicious = age_days < 365 and repos < 2 and followers < 2
+    is_suspicious = _age_days(user, now) < 365 and repos < 2 and followers < 2
     return is_ghost, is_suspicious
 
 
@@ -27,6 +31,7 @@ def _clamp(x: float) -> float:
 
 
 def _pct_signal(name: str, value: float) -> Signal:
+    """A 'higher is worse' percentage signal (fraction of sampled accounts)."""
     thr = THRESHOLDS[name]
     tripped = value > thr
     sev = _clamp((value - thr) / (1 - thr)) if tripped and thr < 1 else 0.0
@@ -34,6 +39,24 @@ def _pct_signal(name: str, value: float) -> Signal:
         name=name, value=round(value, 4), baseline=BASELINES[name],
         threshold=thr, weight=WEIGHTS[name], tripped=tripped, severity=sev,
         detail=f"{value:.1%} of sampled stargazers",
+    )
+
+
+def _young_age_signal(median_age: float, counted: int) -> Signal:
+    """A 'lower is worse' signal: a young median account age is suspicious.
+
+    Catches young bought-star campaigns (e.g. medians of ~100-500 days) that
+    the aged-account fingerprints miss.
+    """
+    name = "young_median_age"
+    thr = THRESHOLDS[name]
+    tripped = counted > 0 and median_age < thr
+    sev = _clamp((thr - median_age) / thr) if tripped and thr > 0 else 0.0
+    return Signal(
+        name=name, value=round(median_age, 1), baseline=BASELINES[name],
+        threshold=thr, weight=WEIGHTS[name], tripped=tripped, severity=sev,
+        detail=f"median account age {median_age:.0f} days "
+               f"({counted} sampled)" if counted else "no accounts sampled",
     )
 
 
@@ -80,15 +103,26 @@ def analyze_profiles(
         if len(logins) >= sample:
             break
 
-    ghosts = suspicious = 0
+    ghosts = suspicious = zero_followers = zero_repos = 0
+    ages: list[int] = []
     counted = 0
     for login in logins:
         user = client.get_user(login)
         g, s = classify_account(user, now)
         ghosts += g
         suspicious += s
+        if (user.get("followers", 0) or 0) == 0:
+            zero_followers += 1
+        if (user.get("public_repos", 0) or 0) == 0:
+            zero_repos += 1
+        ages.append(_age_days(user, now))
         counted += 1
 
-    ghost_pct = ghosts / counted if counted else 0.0
-    susp_pct = suspicious / counted if counted else 0.0
-    return [_pct_signal("ghost_pct", ghost_pct), _pct_signal("suspicious_pct", susp_pct)]
+    median_age = float(median(ages)) if ages else 0.0
+    return [
+        _pct_signal("ghost_pct", ghosts / counted if counted else 0.0),
+        _pct_signal("suspicious_pct", suspicious / counted if counted else 0.0),
+        _pct_signal("zero_followers_pct", zero_followers / counted if counted else 0.0),
+        _pct_signal("zero_repos_pct", zero_repos / counted if counted else 0.0),
+        _young_age_signal(median_age, counted),
+    ]

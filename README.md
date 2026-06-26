@@ -19,7 +19,7 @@ fake. It runs three independent detectors and combines them into a weighted
 | Detector | Signal | Idea |
 |----------|--------|------|
 | **Ratios** | fork-to-star, watcher-to-star | A star is free; a fork/watch means someone actually uses the code. Real projects fork ~16% of star count; manipulated ones <5%. |
-| **Profiles** | ghost%, suspicious% | Samples stargazer accounts (spread across the star history) and measures how many are empty "ghost" accounts (no repos, no followers, no bio) or brand-new low-activity accounts. |
+| **Profiles** | ghost%, suspicious%, zero-followers%, zero-repos%, young median age | Samples stargazer accounts (spread across the star history) and measures emptiness and youth. Zero-followers% is the strongest single discriminator (organic 6–12% vs manipulated 52–81%); it and zero-repos% catch *aged* empty accounts that the stricter ghost/suspicious tests miss. |
 | **Temporal** | burst fraction | Bins stars by day and flags days that exceed `k × median` daily rate — bought stars arrive in unnatural spikes. |
 
 Output is a human-readable report by default, or machine-readable JSON with `--json`.
@@ -96,11 +96,14 @@ Each detector emits `Signal`s with a `severity` in `[0, 1]`. The final score is
 
 | Signal | Weight |
 |--------|-------:|
-| fork-to-star | 30 |
-| ghost% | 25 |
-| suspicious% | 20 |
-| watcher-to-star | 15 |
-| temporal burst | 10 |
+| fork-to-star | 25 |
+| zero-followers% | 18 |
+| watcher-to-star | 12 |
+| ghost% | 12 |
+| suspicious% | 12 |
+| zero-repos% | 9 |
+| young median age | 7 |
+| temporal burst | 5 |
 
 A repo that returns `404` is scored as deleted (a strong manipulation signal —
 ~90% of repos flagged by the CMU study were later removed by GitHub).

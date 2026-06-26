@@ -108,13 +108,19 @@ class Verdict:
   pages (not just page 1) for large repos.
 - Per account capture: `created_at` (→ age in days), `public_repos`,
   `followers`, `bio`.
-- Derived signals:
+- Derived signals (all scored; all appear in the report whether tripped or not):
   - **ghost%** = accounts with `public_repos == 0 AND followers == 0 AND no bio`.
     Baseline ~1%. **Trip if > 10%.**
   - **suspicious%** = accounts with `age < 365d AND public_repos < 2 AND followers < 2`.
     Baseline ~0%. **Trip if > 15%.**
-  - Also report (non-scoring, informational): median account age, % zero repos,
-    % zero followers.
+  - **zero_followers%** = accounts with `followers == 0`. Baseline ~10%.
+    **Trip if > 35%.** Strongest single profile discriminator; catches aged
+    empty accounts (with bios, >365d old) that ghost% and suspicious% miss.
+  - **zero_repos%** = accounts with `public_repos == 0`. Baseline ~5%.
+    **Trip if > 20%.**
+  - **young_median_age** = median sampled account age in days ("lower is worse").
+    Baseline ~3000d. **Trip if median < 730d.** Catches young campaigns
+    (e.g. medians of ~100–500 days).
 
 ### 5.3 temporal.py (paginated timeline, capped)
 
@@ -133,13 +139,25 @@ how far it exceeds its threshold (not binary), capped at its weight.
 
 Default weights (sum 100):
 
-| Signal           | Weight |
-|------------------|--------|
-| fork_to_star     | 30     |
-| ghost%           | 25     |
-| suspicious%      | 20     |
-| watcher_to_star  | 15     |
-| temporal_burst   | 10     |
+| Signal             | Weight |
+|--------------------|--------|
+| fork_to_star       | 25     |
+| zero_followers_pct | 18     |
+| watcher_to_star    | 12     |
+| ghost_pct          | 12     |
+| suspicious_pct     | 12     |
+| zero_repos_pct     | 9      |
+| young_median_age   | 7      |
+| temporal_burst     | 5      |
+
+`zero_followers_pct` is weighted highest among the profile signals: the
+source investigation shows it is the single most discriminating profile
+metric (organic 6–12% vs manipulated 52–81%). `ghost_pct` is the strict
+intersection (no repos AND no followers AND no bio) and under-detects aged
+accounts that carry a bio, so it is down-weighted in favour of
+`zero_followers_pct` / `zero_repos_pct`. `young_median_age` ("lower is worse",
+median sampled account age in days, threshold 730) catches young campaigns
+that the emptiness fingerprints miss.
 
 Verdict bands:
 
