@@ -118,6 +118,11 @@ class Verdict:
     empty accounts (with bios, >365d old) that ghost% and suspicious% miss.
   - **zero_repos%** = accounts with `public_repos == 0`. Baseline ~5%.
     **Trip if > 20%.**
+  - **zero_following%** = accounts with `following == 0`. Baseline ~40%.
+    **Trip if > 55%.** Weak supporting signal (real devs tend to follow
+    others, but many legitimate users follow nobody) — low weight, high
+    threshold to limit false positives. Not measured in the source study;
+    derived from its prose ("…and follow other users").
   - **young_median_age** = median sampled account age in days ("lower is worse").
     Baseline ~3000d. **Trip if median < 730d.** Catches young campaigns
     (e.g. medians of ~100–500 days).
@@ -141,14 +146,15 @@ Default weights (sum 100):
 
 | Signal             | Weight |
 |--------------------|--------|
-| fork_to_star       | 25     |
-| zero_followers_pct | 18     |
+| fork_to_star       | 23     |
+| zero_followers_pct | 16     |
 | watcher_to_star    | 12     |
 | ghost_pct          | 12     |
 | suspicious_pct     | 12     |
 | zero_repos_pct     | 9      |
 | young_median_age   | 7      |
 | temporal_burst     | 5      |
+| zero_following_pct | 4      |
 
 `zero_followers_pct` is weighted highest among the profile signals: the
 source investigation shows it is the single most discriminating profile

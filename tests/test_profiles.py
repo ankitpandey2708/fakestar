@@ -94,6 +94,30 @@ def test_old_median_age_does_not_trip():
     assert sigs["young_median_age"].tripped is False
 
 
+def _follow_user(login, following):
+    # otherwise real-looking account (aged, repos, followers, bio)
+    return {"login": login, "created_at": "2020-01-01T00:00:00Z",
+            "public_repos": 5, "followers": 5, "following": following, "bio": "dev"}
+
+
+def test_zero_following_flags_accounts_that_follow_nobody():
+    users = [_follow_user(f"f{i}", 0) for i in range(10)]
+    sigs = {s.name: s for s in analyze_profiles(FakeClient(users), "o", "r",
+                                                sample=10, now=NOW)}
+    assert sigs["zero_following_pct"].value == 1.0
+    assert sigs["zero_following_pct"].tripped is True
+    # the otherwise-real-looking fingerprints stay clean
+    assert sigs["ghost_pct"].tripped is False
+    assert sigs["zero_followers_pct"].tripped is False
+
+
+def test_accounts_that_follow_others_do_not_trip():
+    users = [_follow_user(f"f{i}", 10) for i in range(10)]
+    sigs = {s.name: s for s in analyze_profiles(FakeClient(users), "o", "r",
+                                                sample=10, now=NOW)}
+    assert sigs["zero_following_pct"].tripped is False
+
+
 def test_sampling_spans_recent_pages_not_just_first():
     # 1000 stars => 10 pages. Page 1 is all clean devs; the LAST page is all
     # ghosts (a recent campaign). Sampling only page 1 would see 0% ghosts and

@@ -103,7 +103,7 @@ def analyze_profiles(
         if len(logins) >= sample:
             break
 
-    ghosts = suspicious = zero_followers = zero_repos = 0
+    ghosts = suspicious = zero_followers = zero_repos = zero_following = 0
     ages: list[int] = []
     counted = 0
     for login in logins:
@@ -115,14 +115,21 @@ def analyze_profiles(
             zero_followers += 1
         if (user.get("public_repos", 0) or 0) == 0:
             zero_repos += 1
+        if (user.get("following", 0) or 0) == 0:
+            zero_following += 1
         ages.append(_age_days(user, now))
         counted += 1
 
     median_age = float(median(ages)) if ages else 0.0
+
+    def pct(n: int) -> float:
+        return n / counted if counted else 0.0
+
     return [
-        _pct_signal("ghost_pct", ghosts / counted if counted else 0.0),
-        _pct_signal("suspicious_pct", suspicious / counted if counted else 0.0),
-        _pct_signal("zero_followers_pct", zero_followers / counted if counted else 0.0),
-        _pct_signal("zero_repos_pct", zero_repos / counted if counted else 0.0),
+        _pct_signal("ghost_pct", pct(ghosts)),
+        _pct_signal("suspicious_pct", pct(suspicious)),
+        _pct_signal("zero_followers_pct", pct(zero_followers)),
+        _pct_signal("zero_repos_pct", pct(zero_repos)),
+        _pct_signal("zero_following_pct", pct(zero_following)),
         _young_age_signal(median_age, counted),
     ]

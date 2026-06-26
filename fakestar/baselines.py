@@ -9,14 +9,18 @@ from __future__ import annotations
 # three are correlated and stack on a fake repo — kept deliberately (scores cap
 # at 100, severities are proportional); don't re-inflate ghost_pct's weight.
 WEIGHTS: dict[str, int] = {
-    "fork_to_star": 25,
-    "zero_followers_pct": 18,
+    "fork_to_star": 23,
+    "zero_followers_pct": 16,
     "watcher_to_star": 12,
     "ghost_pct": 12,
     "suspicious_pct": 12,
     "zero_repos_pct": 9,
     "young_median_age": 7,
     "temporal_burst": 5,
+    # Weak signal: real devs tend to follow others, farmed accounts often
+    # follow nobody. But many legitimate users also follow nobody, so it gets
+    # a low weight and a high threshold to limit false positives.
+    "zero_following_pct": 4,
 }
 
 # For percentage signals the value trips when it rises ABOVE the threshold.
@@ -28,6 +32,7 @@ THRESHOLDS: dict[str, float] = {
     "suspicious_pct": 0.15,
     "zero_followers_pct": 0.35,
     "zero_repos_pct": 0.20,
+    "zero_following_pct": 0.55,
     "young_median_age": 730.0,
     "watcher_to_star": 0.002,
     "temporal_burst": 0.30,
@@ -39,6 +44,7 @@ BASELINES: dict[str, float] = {
     "suspicious_pct": 0.00,
     "zero_followers_pct": 0.10,
     "zero_repos_pct": 0.05,
+    "zero_following_pct": 0.40,
     "young_median_age": 3000.0,
     "watcher_to_star": 0.015,
     "temporal_burst": 0.05,
