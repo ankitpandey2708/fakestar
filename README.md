@@ -83,7 +83,7 @@ fakestar-check any/repo --ratios-only     # 1 API call, no sampling
 | `--timeline-pages N` | 40 | star-timeline pages to fetch |
 | `--ratios-only` | off | skip profile + temporal detectors |
 | `--json` | off | emit JSON instead of a text report |
-| `--wait` | off | (reserved) sleep through rate-limit windows |
+| `--wait` | off | sleep until the rate-limit window resets and retry, instead of erroring out |
 
 ### Exit codes
 `0` LIKELY ORGANIC · `1` SUSPICIOUS · `2` LIKELY MANIPULATED · `3` error (e.g. rate-limited)

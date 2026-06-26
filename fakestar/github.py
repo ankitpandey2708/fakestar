@@ -23,14 +23,24 @@ class GitHubServerError(Exception):
         self.status = status
 
 
+MAX_RATE_LIMIT_WAITS = 5
+
+
 class GitHubClient:
-    def __init__(self, token: str | None = None, session=None, sleeper=time.sleep):
+    def __init__(self, token: str | None = None, session=None, sleeper=time.sleep,
+                 wait: bool = False):
         if session is None:
             import requests
             session = requests.Session()
         self._session = session
         self._token = token
         self._sleep = sleeper
+        self._wait = wait
+
+    @staticmethod
+    def _seconds_until(reset_ts: int) -> int:
+        # +1s buffer so we resume just after the window opens
+        return max(0, reset_ts - int(time.time())) + 1
 
     def _headers(self, accept: str = "application/vnd.github+json") -> dict[str, str]:
         h = {"Accept": accept, "X-GitHub-Api-Version": "2022-11-28"}
@@ -39,16 +49,24 @@ class GitHubClient:
         return h
 
     def _request(self, url: str, accept: str = "application/vnd.github+json"):
-        for attempt in range(3):
+        server_attempts = 0
+        rate_waits = 0
+        while True:
             resp = self._session.get(url, headers=self._headers(accept))
             status = resp.status_code
             if status == 404:
                 raise RepoNotFound(url)
             if status in (403, 429) and resp.headers.get("X-RateLimit-Remaining") == "0":
-                raise RateLimited(int(resp.headers.get("X-RateLimit-Reset", "0")))
+                reset_ts = int(resp.headers.get("X-RateLimit-Reset", "0"))
+                if self._wait and rate_waits < MAX_RATE_LIMIT_WAITS:
+                    self._sleep(self._seconds_until(reset_ts))
+                    rate_waits += 1
+                    continue
+                raise RateLimited(reset_ts)
             if 500 <= status < 600:
-                if attempt < 2:
-                    self._sleep(2 ** attempt)
+                if server_attempts < 2:
+                    self._sleep(2 ** server_attempts)
+                    server_attempts += 1
                     continue
                 raise GitHubServerError(status, url)
             return resp

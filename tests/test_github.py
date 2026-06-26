@@ -56,6 +56,30 @@ def test_rate_limit_raises_with_reset():
     assert ei.value.reset_ts == 1700000000
 
 
+def test_rate_limit_waits_and_retries_when_enabled():
+    calls = []
+    sess = FakeSession([
+        FakeResp(403, {}, headers={
+            "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1700000000"}),
+        FakeResp(200, {"ok": True}),
+    ])
+    c = GitHubClient(token="t", session=sess,
+                     sleeper=lambda s: calls.append(s), wait=True)
+    assert c.get_repo("o", "r") == {"ok": True}
+    assert len(calls) == 1  # slept once through the rate-limit window, then retried
+
+
+def test_rate_limit_wait_gives_up_after_max():
+    # window never reopens: still raises rather than looping forever
+    responses = [FakeResp(403, {}, headers={
+        "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1700000000"})
+        for _ in range(10)]
+    sess = FakeSession(responses)
+    c = GitHubClient(token="t", session=sess, sleeper=lambda _s: None, wait=True)
+    with pytest.raises(RateLimited):
+        c.get_repo("o", "r")
+
+
 def test_iter_stargazers_follows_pagination():
     page1 = FakeResp(200, [{"login": "a"}, {"login": "b"}],
                      links={"next": {"url": "https://api/page2"}})

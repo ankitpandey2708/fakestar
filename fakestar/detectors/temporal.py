@@ -44,7 +44,7 @@ def analyze_temporal(client, owner: str, repo: str, max_pages: int = 40) -> list
     fraction, detail = detect_burst(timestamps)
     thr = THRESHOLDS["temporal_burst"]
     tripped = fraction > thr
-    sev = _clamp((fraction - thr) / (1 - thr)) if tripped else 0.0
+    sev = _clamp((fraction - thr) / (1 - thr)) if tripped and thr < 1 else 0.0
     return [Signal(
         name="temporal_burst", value=round(fraction, 4),
         baseline=BASELINES["temporal_burst"], threshold=thr,

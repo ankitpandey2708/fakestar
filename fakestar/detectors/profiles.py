@@ -29,7 +29,7 @@ def _clamp(x: float) -> float:
 def _pct_signal(name: str, value: float) -> Signal:
     thr = THRESHOLDS[name]
     tripped = value > thr
-    sev = _clamp((value - thr) / (1 - thr)) if tripped else 0.0
+    sev = _clamp((value - thr) / (1 - thr)) if tripped and thr < 1 else 0.0
     return Signal(
         name=name, value=round(value, 4), baseline=BASELINES[name],
         threshold=thr, weight=WEIGHTS[name], tripped=tripped, severity=sev,

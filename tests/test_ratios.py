@@ -1,9 +1,18 @@
+from fakestar.detectors import ratios
 from fakestar.detectors.ratios import analyze_ratios
 
 
 def _repo(stars, forks, watchers):
     return {"stargazers_count": stars, "forks_count": forks,
             "subscribers_count": watchers}
+
+
+def test_zero_threshold_does_not_crash(monkeypatch):
+    # A threshold of 0 would make the severity denominator zero. The guard must
+    # keep severity valid and never raise ZeroDivisionError.
+    monkeypatch.setitem(ratios.THRESHOLDS, "fork_to_star", 0.0)
+    sigs = {s.name: s for s in analyze_ratios(_repo(50000, 0, 1))}
+    assert 0.0 <= sigs["fork_to_star"].severity <= 1.0
 
 
 def test_organic_repo_does_not_trip():

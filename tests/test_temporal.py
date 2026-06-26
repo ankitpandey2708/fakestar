@@ -1,3 +1,4 @@
+from fakestar.detectors import temporal
 from fakestar.detectors.temporal import analyze_temporal, detect_burst
 
 
@@ -58,3 +59,12 @@ def test_analyze_temporal_empty_safe():
     sig = analyze_temporal(FakeClient([]), "o", "r")[0]
     assert sig.tripped is False
     assert sig.value == 0.0
+
+
+def test_analyze_temporal_degenerate_threshold_does_not_crash(monkeypatch):
+    # A threshold of 1.0 would make the severity denominator (1 - thr) zero.
+    # The guard must keep severity valid and never raise ZeroDivisionError,
+    # even if the trip condition is later loosened.
+    monkeypatch.setitem(temporal.THRESHOLDS, "temporal_burst", 1.0)
+    sig = analyze_temporal(FakeClient(["2024-07-01T00:00:00Z"] * 50), "o", "r")[0]
+    assert 0.0 <= sig.severity <= 1.0

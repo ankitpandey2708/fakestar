@@ -20,11 +20,11 @@ def analyze_ratios(repo: dict) -> list[Signal]:
 
     fs_thr = THRESHOLDS["fork_to_star"]
     fs_tripped = fs < fs_thr and stars > MIN_STARS_FOR_RATIO
-    fs_sev = _clamp((fs_thr - fs) / fs_thr) if fs_tripped else 0.0
+    fs_sev = _clamp((fs_thr - fs) / fs_thr) if fs_tripped and fs_thr > 0 else 0.0
 
     ws_thr = THRESHOLDS["watcher_to_star"]
     ws_tripped = stars > 0 and ws < ws_thr
-    ws_sev = _clamp((ws_thr - ws) / ws_thr) if ws_tripped else 0.0
+    ws_sev = _clamp((ws_thr - ws) / ws_thr) if ws_tripped and ws_thr > 0 else 0.0
 
     return [
         Signal(

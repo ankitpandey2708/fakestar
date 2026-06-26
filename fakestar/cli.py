@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
               "(unauthenticated rate limits forbid profile sampling).",
               file=sys.stderr)
 
-    client = GitHubClient(token=token)
+    client = GitHubClient(token=token, wait=args.wait)
     try:
         verdict = run(args, client)
     except RateLimited as e:
