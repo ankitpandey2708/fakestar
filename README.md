@@ -126,14 +126,44 @@ A repo that returns `404` is scored as deleted (a strong manipulation signal —
   star event aren't counted, so old campaigns are under-counted.
 - Thresholds are tunable defaults derived from a small sample, not ground truth.
 
-## Development
+## Testing & validation
+
+**1. Automated tests** (no network, instant):
 ```bash
 pip install -e ".[dev]"
-python -m pytest        # 43 tests
+python -m pytest -v        # 61 tests, injected fake clients — no GitHub calls
 ```
+
+**2. Quick live check, no token** — auto-degrades to ratios-only (1 API call, fits the 60/hr unauthenticated limit):
+```bash
+python -m fakestar.cli pallets/flask --ratios-only
+python -m fakestar.cli DigitalPlatDev/FreeDomain --ratios-only
+```
+On real data this reproduces the investigation's numbers — Flask's fork-to-star
+is ~0.235, FreeDomain's ~0.020. (Ratios-only contributes ≤35 points, so flagged
+repos stay in the lower bands here; the profile/engagement signals that fully
+condemn them need a token — see below.)
+
+**3. Full validation against the blog's labels** (needs a token for sampling):
+```bash
+export GITHUB_TOKEN=ghp_xxx        # run in your own shell — don't paste tokens into chat tools
+fakestar-check DigitalPlatDev/FreeDomain
+```
+Confirm the two groups separate cleanly:
+
+| Expectation | Repos |
+|---|---|
+| **Low score** (LIKELY ORGANIC) | `pallets/flask`, `langchain-ai/langchain`, `Significant-Gravitas/AutoGPT` |
+| **High score** (SUSPICIOUS / MANIPULATED) | `DigitalPlatDev/FreeDomain`, `shardeum/shardeum`, `unionlabs/union`, `raga-ai-hub/RagaAI-Catalyst` |
+
+If you see a `RequestsDependencyWarning` about urllib3/charset versions, that's a
+local environment mismatch, not this tool — `pip install -U urllib3 charset_normalizer` clears it.
+
+## Development
 Architecture: isolated detectors (`fakestar/detectors/`) feed a scoring engine
 (`scoring.py`); a thin API client (`github.py`) is the only shared dependency.
-See `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design.
+Each detector returns `Signal`s and is independently unit-testable against fake
+clients. See `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design.
 
 ## License
 MIT
