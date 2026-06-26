@@ -848,7 +848,7 @@ git commit -m "feat: stargazer profile sampling detector (ghost/suspicious)"
 **Interfaces:**
 - Consumes: `Signal` (Task 1); `WEIGHTS`/`THRESHOLDS`/`BASELINES` (Task 2); client `iter_stargazers(owner, repo, with_timestamps=True, max_pages=...)` (Task 4).
 - Produces:
-  - `detect_burst(timestamps: list[str], k: int = 20) -> tuple[float, str]` — bins by day, returns `(largest_day_fraction, detail)` where fraction = busiest_day_count / total. (`k` reserved for future per-day-vs-median use; busiest-day fraction is the scored value per spec §5.3.)
+  - `detect_burst(timestamps: list[str], k: int = 20) -> tuple[float, str]` — bins stars by calendar day, computes the median daily count, marks any day whose count exceeds `k × median` as a "burst day", and returns `(burst_fraction, detail)` where `burst_fraction = (stars on burst days) / total`. Degenerate guard: if all stars fall on a single day, return `1.0` (the most extreme burst). Empty input → `0.0`.
   - `analyze_temporal(client, owner, repo, max_pages: int = 40) -> list[Signal]` — one `temporal_burst` signal. Trips when fraction > threshold. Severity = `clamp((fraction - threshold) / (1 - threshold))`. Empty timeline → untripped.
 
 - [ ] **Step 1: Write the failing test** in `tests/test_temporal.py`
@@ -862,16 +862,24 @@ def _ts(day):
 
 
 def test_detect_burst_spike():
-    # 90 stars on one day, 10 spread across 10 days
+    # 90 stars on one day, 10 spread across 10 days (median daily count = 1,
+    # k*median = 20, only day 1 exceeds it -> 90/100 burst fraction)
     spike = [_ts(1)] * 90 + [_ts(d) for d in range(2, 12)]
     frac, _ = detect_burst(spike)
     assert frac == 0.9
 
 
-def test_detect_burst_even_distribution():
-    even = [_ts(d) for d in range(1, 21)]  # 1 per day
+def test_detect_burst_even_distribution_no_burst():
+    # 1 per day for 20 days: median = 1, no day exceeds 20*median -> no burst
+    even = [_ts(d) for d in range(1, 21)]
     frac, _ = detect_burst(even)
-    assert frac == 0.05
+    assert frac == 0.0
+
+
+def test_detect_burst_single_day_is_max():
+    # everything on one day -> degenerate guard returns full burst
+    frac, _ = detect_burst([_ts(1)] * 50)
+    assert frac == 1.0
 
 
 def test_detect_burst_empty():
@@ -919,6 +927,7 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'fakestar.detectors.tem
 from __future__ import annotations
 
 from collections import Counter
+from statistics import median
 
 from ..baselines import BASELINES, THRESHOLDS, WEIGHTS
 from ..models import Signal
@@ -927,11 +936,24 @@ from ..models import Signal
 def detect_burst(timestamps: list[str], k: int = 20) -> tuple[float, str]:
     if not timestamps:
         return 0.0, "no timeline data"
-    days = Counter(ts[:10] for ts in timestamps)  # YYYY-MM-DD
-    busiest_day, busiest_count = days.most_common(1)[0]
+    days = Counter(ts[:10] for ts in timestamps)  # bin by YYYY-MM-DD
     total = len(timestamps)
-    fraction = busiest_count / total
-    detail = f"{busiest_count}/{total} sampled stars on {busiest_day} ({fraction:.1%})"
+    if len(days) == 1:
+        # all stars on a single day: the most extreme possible burst
+        (only_day, count), = days.items()
+        return 1.0, f"all {count} sampled stars on {only_day} (single-day burst)"
+    med = median(days.values())
+    cutoff = k * med
+    burst_days = {d: c for d, c in days.items() if c > cutoff}
+    burst_stars = sum(burst_days.values())
+    fraction = burst_stars / total
+    if burst_days:
+        peak_day = max(burst_days, key=burst_days.get)
+        detail = (f"{burst_stars}/{total} sampled stars on {len(burst_days)} "
+                  f"burst day(s) (>{k}x median {med}); peak {peak_day}="
+                  f"{days[peak_day]} ({fraction:.1%})")
+    else:
+        detail = f"no day exceeds {k}x median daily rate ({med}); evenly spread"
     return fraction, detail
 
 
