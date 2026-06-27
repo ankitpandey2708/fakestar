@@ -4,16 +4,13 @@ from datetime import datetime, timezone
 from math import ceil
 from statistics import median
 
-from ..baselines import BASELINES, THRESHOLDS, WEIGHTS
+from ..baselines import THRESHOLDS
 from ..models import Signal
-
-
-def _parse_dt(s: str) -> datetime:
-    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+from ._common import make_signal, parse_dt, sev_high, sev_low
 
 
 def _age_days(user: dict, now: datetime) -> int:
-    return (now - _parse_dt(user["created_at"])).days
+    return (now - parse_dt(user["created_at"])).days
 
 
 def classify_account(user: dict, now: datetime) -> tuple[bool, bool]:
@@ -26,20 +23,13 @@ def classify_account(user: dict, now: datetime) -> tuple[bool, bool]:
     return is_ghost, is_suspicious
 
 
-def _clamp(x: float) -> float:
-    return max(0.0, min(1.0, x))
-
-
 def _pct_signal(name: str, value: float) -> Signal:
     """A 'higher is worse' percentage signal (fraction of sampled accounts)."""
     thr = THRESHOLDS[name]
     tripped = value > thr
-    sev = _clamp((value - thr) / (1 - thr)) if tripped and thr < 1 else 0.0
-    return Signal(
-        name=name, value=round(value, 4), baseline=BASELINES[name],
-        threshold=thr, weight=WEIGHTS[name], tripped=tripped, severity=sev,
-        detail=f"{value:.1%} of sampled stargazers",
-    )
+    return make_signal(
+        name, round(value, 4), tripped, sev_high(value, thr, tripped),
+        f"{value:.1%} of sampled stargazers")
 
 
 def _young_age_signal(median_age: float, counted: int) -> Signal:
@@ -51,13 +41,11 @@ def _young_age_signal(median_age: float, counted: int) -> Signal:
     name = "young_median_age"
     thr = THRESHOLDS[name]
     tripped = counted > 0 and median_age < thr
-    sev = _clamp((thr - median_age) / thr) if tripped and thr > 0 else 0.0
-    return Signal(
-        name=name, value=round(median_age, 1), baseline=BASELINES[name],
-        threshold=thr, weight=WEIGHTS[name], tripped=tripped, severity=sev,
-        detail=f"median account age {median_age:.0f} days "
-               f"({counted} sampled)" if counted else "no accounts sampled",
-    )
+    detail = (f"median account age {median_age:.0f} days ({counted} sampled)"
+              if counted else "no accounts sampled")
+    return make_signal(
+        name, round(median_age, 1), tripped,
+        sev_low(median_age, thr, tripped), detail)
 
 
 PER_PAGE = 100

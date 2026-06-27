@@ -3,8 +3,9 @@ from __future__ import annotations
 from collections import Counter
 from statistics import median
 
-from ..baselines import BASELINES, THRESHOLDS, WEIGHTS
+from ..baselines import THRESHOLDS
 from ..models import Signal
+from ._common import make_signal, sev_high
 
 
 def detect_burst(timestamps: list[str], k: int = 20) -> tuple[float, str]:
@@ -31,10 +32,6 @@ def detect_burst(timestamps: list[str], k: int = 20) -> tuple[float, str]:
     return fraction, detail
 
 
-def _clamp(x: float) -> float:
-    return max(0.0, min(1.0, x))
-
-
 def analyze_temporal(client, owner: str, repo: str, max_pages: int = 40) -> list[Signal]:
     timestamps = [
         item["starred_at"]
@@ -44,10 +41,6 @@ def analyze_temporal(client, owner: str, repo: str, max_pages: int = 40) -> list
     fraction, detail = detect_burst(timestamps)
     thr = THRESHOLDS["temporal_burst"]
     tripped = fraction > thr
-    sev = _clamp((fraction - thr) / (1 - thr)) if tripped and thr < 1 else 0.0
-    return [Signal(
-        name="temporal_burst", value=round(fraction, 4),
-        baseline=BASELINES["temporal_burst"], threshold=thr,
-        weight=WEIGHTS["temporal_burst"], tripped=tripped, severity=sev,
-        detail=detail,
-    )]
+    return [make_signal(
+        "temporal_burst", round(fraction, 4), tripped,
+        sev_high(fraction, thr, tripped), detail)]

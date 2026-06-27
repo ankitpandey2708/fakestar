@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from ..baselines import BASELINES, MIN_STARS_FOR_RATIO, THRESHOLDS, WEIGHTS
+from ..baselines import MIN_STARS_FOR_RATIO, THRESHOLDS
 from ..models import Signal
+from ._common import make_signal, sev_low
 
 _CAVEAT = "Low forks/watchers can be normal for curated lists, docs, or tutorials."
-
-
-def _clamp(x: float) -> float:
-    return max(0.0, min(1.0, x))
 
 
 def analyze_ratios(repo: dict) -> list[Signal]:
@@ -20,24 +17,15 @@ def analyze_ratios(repo: dict) -> list[Signal]:
 
     fs_thr = THRESHOLDS["fork_to_star"]
     fs_tripped = fs < fs_thr and stars > MIN_STARS_FOR_RATIO
-    fs_sev = _clamp((fs_thr - fs) / fs_thr) if fs_tripped and fs_thr > 0 else 0.0
 
     ws_thr = THRESHOLDS["watcher_to_star"]
     ws_tripped = stars > 0 and ws < ws_thr
-    ws_sev = _clamp((ws_thr - ws) / ws_thr) if ws_tripped and ws_thr > 0 else 0.0
 
     return [
-        Signal(
-            name="fork_to_star", value=round(fs, 4),
-            baseline=BASELINES["fork_to_star"], threshold=fs_thr,
-            weight=WEIGHTS["fork_to_star"], tripped=fs_tripped, severity=fs_sev,
-            detail=f"{forks} forks / {stars} stars = {fs:.4f}", caveat=_CAVEAT,
-        ),
-        Signal(
-            name="watcher_to_star", value=round(ws, 4),
-            baseline=BASELINES["watcher_to_star"], threshold=ws_thr,
-            weight=WEIGHTS["watcher_to_star"], tripped=ws_tripped, severity=ws_sev,
-            detail=f"{watchers} watchers / {stars} stars = {ws:.4f}", caveat=_CAVEAT,
-        ),
+        make_signal(
+            "fork_to_star", round(fs, 4), fs_tripped, sev_low(fs, fs_thr, fs_tripped),
+            f"{forks} forks / {stars} stars = {fs:.4f}", caveat=_CAVEAT),
+        make_signal(
+            "watcher_to_star", round(ws, 4), ws_tripped, sev_low(ws, ws_thr, ws_tripped),
+            f"{watchers} watchers / {stars} stars = {ws:.4f}", caveat=_CAVEAT),
     ]
-
