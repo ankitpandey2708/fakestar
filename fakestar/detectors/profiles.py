@@ -49,6 +49,9 @@ def _young_age_signal(median_age: float, counted: int) -> Signal:
 
 
 PER_PAGE = 100
+# GitHub serves only the first ~400 pages of the stargazers list (~40k stars);
+# requesting beyond that returns a 422, so never select a page past this.
+MAX_STARGAZER_PAGES = 400
 
 
 def auto_sample(total_stars: int, margin: float = 0.08, z: float = 1.96,
@@ -98,6 +101,7 @@ def analyze_profiles(
         total_pages = max(1, ceil(total_stars / PER_PAGE))
     else:
         total_pages = max(1, ceil(sample / PER_PAGE))
+    total_pages = min(total_pages, MAX_STARGAZER_PAGES)  # GitHub won't page past this
     n_pages = min(total_pages, max(1, ceil(sample / PER_PAGE)))
     pages = _select_pages(total_pages, n_pages)
     per_page_take = ceil(sample / len(pages))

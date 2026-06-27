@@ -24,3 +24,6 @@ class Verdict:
     sample_size: int
     repo: str
     notes: list[str] = field(default_factory=list)
+    # Layer-C two-axis breakdown (None = not assessed, e.g. too few stargazers).
+    stargazer_score: int | None = None
+    usage_score: int | None = None

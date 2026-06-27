@@ -78,10 +78,12 @@ BASELINES: dict[str, float] = {
 
 MIN_STARS_FOR_RATIO: int = 10_000
 
-# (upper_inclusive_score, label), ascending
+# (upper_inclusive_score, label), ascending. Cut-points set from the labeled
+# separation distributions (corpus/calibration.json): organic p95 ~= 15 on the
+# Layer-C weighted-mean scale; fake median 40-50 at trustworthy sample sizes.
 BANDS: list[tuple[int, str]] = [
-    (25, "LIKELY ORGANIC"),
-    (60, "SUSPICIOUS"),
+    (18, "LIKELY ORGANIC"),
+    (44, "SUSPICIOUS"),
     (100, "LIKELY MANIPULATED"),
 ]
 
@@ -91,3 +93,29 @@ def band_for(score: int) -> str:
         if score <= upper:
             return label
     return BANDS[-1][1]
+
+
+# ---------------------------------------------------------------------------
+# Calibration knobs (Layers A & C) — the single home for all human-CHOSEN
+# scoring parameters. Both fakestar/scoring.py (runtime) and
+# tools/build_calibration.py (build) import these. The values these operate on
+# (the anchors) are MEASURED, and live in corpus/calibration.json.
+# ---------------------------------------------------------------------------
+# Signals estimated from the sampled stargazers (carry sampling noise).
+PROFILE_SIGNALS: list[str] = [
+    "ghost_pct", "suspicious_pct", "zero_followers_pct",
+    "zero_repos_pct", "zero_following_pct", "young_median_age",
+]
+# Two scoring axes; within each, severities combine by weighted mean.
+STARGAZER_GROUP: list[str] = PROFILE_SIGNALS + ["temporal_burst"]
+USAGE_GROUP: list[str] = [
+    "fork_to_star", "watcher_to_star", "low_issues",
+    "low_contributors", "commit_staleness",
+]
+# No fake-vs-organic data -> advisory only, excluded from the score.
+UNCALIBRATED: list[str] = ["low_contributors", "commit_staleness"]
+
+SHRINK_PSEUDOCOUNT: int = 20    # empirical-Bayes pull of sampled signals toward organic
+ABSTAIN_BELOW_N: int = 15       # below this many stargazers -> UNCERTAIN, suppress profiles
+LOW_ISSUES_ORGANIC_FLOOR: float = 0.001  # build-only: organic anchor for low_issues
+BURST_MIN_STARS: int = 50       # build-only: min stars for a meaningful burst ratio

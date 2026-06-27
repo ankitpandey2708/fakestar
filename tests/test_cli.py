@@ -76,7 +76,7 @@ def test_run_manipulated_repo(monkeypatch):
     args = parse_args(["o/r"])
     v = run(args, client)
     assert v.band == "LIKELY MANIPULATED"
-    assert v.score >= 61
+    assert v.score >= 45
 
 
 def test_run_repo_not_found_short_circuits():

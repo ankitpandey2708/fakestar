@@ -105,7 +105,10 @@ class GitHubClient:
     ) -> list[dict[str, Any]]:
         url = (f"{API}/repos/{owner}/{repo}/stargazers"
                f"?per_page={per_page}&page={page}")
-        return self._request(url).json()
+        data = self._request(url).json()
+        # beyond GitHub's pagination limit the body is a 422 error object, not a
+        # list — treat as "no more stargazers" instead of crashing the caller.
+        return data if isinstance(data, list) else []
 
     def count_contributors(self, owner: str, repo: str) -> int:
         """Total contributors (capped by GitHub at ~500).

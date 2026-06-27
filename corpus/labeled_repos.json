@@ -1,0 +1,20 @@
+{
+  "_doc": "Held-out END-TO-END test set: live repos with a published label about STAR authenticity (not repo quality/malware). Labels are probabilistic and DATED — GitHub strips fake stars over time, so a once-flagged repo may now score clean (e.g. dagster's confessed-bought frasermarlow/tap-bls fell from 600 stars to 6). Treat as 'the tool should rank manipulated repos higher than organic', not a hard pass/fail. NOT used in calibration (golden.json) — purely for validate_repos.py.",
+  "as_of": "2026-06",
+  "manipulated": [
+    {"repo": "DigitalPlatDev/FreeDomain",   "source": "arXiv 2412.13459",           "evidence": "flagged; very low watcher/fork ratio for 180k stars"},
+    {"repo": "shardeum/shardeum",           "source": "fake-star investigations",    "evidence": "documented inflated stars; low fork ratio"},
+    {"repo": "raga-ai-hub/RagaAI-Catalyst", "source": "arXiv 2412.13459",           "evidence": "76% zero-follower stargazers, 28% ghost"},
+    {"repo": "unionlabs/union",            "source": "StarScout + Runa ROSS index", "evidence": "47.4% suspected fake stars; 54x growth", "drift": "fake stars may be partly stripped since 2025"},
+    {"repo": "openai/openai-fm",            "source": "arXiv 2412.13459",           "evidence": "66% suspicious, 36% ghost, age 116d", "drift": "now more forks than stars; likely cleaned"}
+  ],
+  "_dropped": "etherspot-sdk (25.7%) and joystream (19.9%) removed: only a minority of stars were fake, so they are weak positives, not owner-manipulated.",
+  "organic": [
+    {"repo": "facebook/react",   "source": "undisputed major project"},
+    {"repo": "pallets/flask",    "source": "undisputed major project"},
+    {"repo": "django/django",    "source": "undisputed major project"},
+    {"repo": "fastapi/fastapi",  "source": "undisputed major project"},
+    {"repo": "psf/requests",     "source": "undisputed major project"},
+    {"repo": "numpy/numpy",      "source": "undisputed major project"}
+  ]
+}

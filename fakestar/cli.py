@@ -15,7 +15,8 @@ from .models import Signal, Verdict
 from .report import render_json, render_text
 from .scoring import score_signals
 
-_EXIT = {"LIKELY ORGANIC": 0, "SUSPICIOUS": 1, "LIKELY MANIPULATED": 2}
+_EXIT = {"LIKELY ORGANIC": 0, "SUSPICIOUS": 1, "LIKELY MANIPULATED": 2,
+         "UNCERTAIN": 0}  # not a detection: too few stargazers to confirm
 
 
 def _sample_arg(v: str):
