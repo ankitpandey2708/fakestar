@@ -199,9 +199,11 @@ reported as a high-signal special case.
 
 ## 7. GitHub Client, Auth, Errors (`github.py`)
 
-- Token resolution: `--token` flag, else `$GITHUB_TOKEN`. **A token is
+- Token resolution order: `--token` flag → `$GITHUB_TOKEN`/`$GH_TOKEN` →
+  `gh auth token` (GitHub CLI, if installed & authenticated). **A token is
   required** — a full run far exceeds the 60 req/hr unauthenticated limit; if
-  absent, the CLI errors out (exit 3) telling the user to set it.
+  none resolves, the CLI errors out (exit 3) telling the user how to set one.
+  The `gh` lookup is injectable so tests never shell out.
 - Error handling:
   - **404** — repo gone → emit high-signal note, score accordingly.
   - **403 / 429** rate limit — read `X-RateLimit-Reset`, print clear message;

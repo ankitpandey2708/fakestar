@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
+import subprocess
 import sys
 
 from .detectors.engagement import analyze_engagement
@@ -40,6 +42,29 @@ def _positive_int(v: str) -> int:
     if n < 1:
         raise argparse.ArgumentTypeError("must be >= 1")
     return n
+
+
+def _gh_token() -> str | None:
+    """Token from an authenticated `gh` CLI, or None if gh is absent/logged out."""
+    if not shutil.which("gh"):
+        return None
+    try:
+        out = subprocess.run(["gh", "auth", "token"], capture_output=True,
+                             text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    tok = out.stdout.strip()
+    return tok or None
+
+
+def resolve_token(token_arg: str | None, gh_token=None) -> str | None:
+    """Resolve a GitHub token: --token, then $GITHUB_TOKEN/$GH_TOKEN, then `gh`."""
+    if token_arg:
+        return token_arg
+    env = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if env:
+        return env
+    return (gh_token or _gh_token)()
 
 
 def _progress(msg: str) -> None:
@@ -124,11 +149,10 @@ def run(args: argparse.Namespace, client) -> Verdict:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv if argv is not None else sys.argv[1:])
-    token = args.token or os.environ.get("GITHUB_TOKEN")
+    token = resolve_token(args.token)
     if not token:
-        print("ERROR: a GitHub token is required. Set $GITHUB_TOKEN or pass "
-              "--token.\nCreate one at https://github.com/settings/tokens "
-              "(public_repo scope is enough).", file=sys.stderr)
+        print("ERROR: a GitHub token is required. Pass --token, set "
+              "$GITHUB_TOKEN, or run `gh auth login` (gh CLI).", file=sys.stderr)
         return 3
 
     client = GitHubClient(token=token, wait=args.wait)

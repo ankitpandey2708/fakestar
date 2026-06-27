@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from fakestar.cli import main, parse_args, run
+from fakestar.cli import main, parse_args, resolve_token, run
 from fakestar.github import RepoNotFound
 
 
@@ -86,8 +86,28 @@ def test_run_repo_not_found_short_circuits():
     assert v.band == "LIKELY MANIPULATED"
 
 
+def test_resolve_token_precedence(monkeypatch):
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    # explicit flag wins over everything
+    assert resolve_token("flag", gh_token=lambda: "gh") == "flag"
+    # env beats gh
+    monkeypatch.setenv("GITHUB_TOKEN", "envtok")
+    assert resolve_token(None, gh_token=lambda: "gh") == "envtok"
+    monkeypatch.delenv("GITHUB_TOKEN")
+    # GH_TOKEN also honored
+    monkeypatch.setenv("GH_TOKEN", "ghenv")
+    assert resolve_token(None, gh_token=lambda: "gh") == "ghenv"
+    monkeypatch.delenv("GH_TOKEN")
+    # falls back to gh CLI, then to None
+    assert resolve_token(None, gh_token=lambda: "ghcli") == "ghcli"
+    assert resolve_token(None, gh_token=lambda: None) is None
+
+
 def test_main_requires_a_token(monkeypatch, capsys):
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.setattr("fakestar.cli._gh_token", lambda: None)  # no gh fallback
     rc = main(["o/r"])  # no token -> error out before any network call
     assert rc == 3
     assert "token" in capsys.readouterr().err.lower()

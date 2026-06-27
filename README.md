@@ -63,11 +63,20 @@ pip install -e .
 ### Authenticate (required)
 A GitHub token is **required** — the full analysis makes hundreds of API calls,
 far beyond the 60/hour unauthenticated limit. A token raises that to 5,000/hour.
+The token is resolved in this order:
+
+1. `--token ghp_xxx` (explicit flag)
+2. `$GITHUB_TOKEN` or `$GH_TOKEN` (environment)
+3. **`gh auth token`** — if you already use the [GitHub CLI](https://cli.github.com),
+   just `gh auth login` once and the tool picks up your token automatically.
+
 ```bash
+gh auth login                      # easiest: zero config thereafter
+# or
 export GITHUB_TOKEN=ghp_xxx        # or pass --token
 ```
-A classic token with `public_repo` scope is enough. Without one, the tool exits
-with an error telling you to set it.
+A classic token with `public_repo` scope is enough. If none of the three is
+available, the tool exits with an error telling you how to set one.
 
 ### Run
 ```bash
