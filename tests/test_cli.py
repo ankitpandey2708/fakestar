@@ -10,10 +10,17 @@ from fakestar.github import RepoNotFound
 def test_parse_args_defaults():
     a = parse_args(["octocat/hello"])
     assert a.repo == "octocat/hello"
-    assert a.sample == 150
+    assert a.sample == "auto"          # sized from star count unless overridden
+    assert a.margin == 0.08
+    assert a.max_sample == 150
     assert a.timeline_pages == 40
     assert a.ratios_only is False
     assert a.json is False
+
+
+def test_parse_args_explicit_sample():
+    a = parse_args(["octocat/hello", "--sample", "300"])
+    assert a.sample == 300
 
 
 class FakeClient:

@@ -80,7 +80,9 @@ fakestar-check any/repo --ratios-only     # 1 API call, no sampling
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `--token TOKEN` | `$GITHUB_TOKEN` | GitHub personal access token |
-| `--sample N` | 150 | stargazer profiles to sample |
+| `--sample N` | `auto` | stargazer profiles to sample; `auto` sizes from star count, or pass an integer |
+| `--margin F` | 0.08 | target margin of error for `--sample auto` |
+| `--max-sample N` | 150 | cap for `--sample auto` |
 | `--timeline-pages N` | 40 | star-timeline pages to fetch |
 | `--ratios-only` | off | skip profile + temporal detectors |
 | `--workers N` | 8 | parallel workers for stargazer profile fetching |
@@ -91,12 +93,20 @@ fakestar-check any/repo --ratios-only     # 1 API call, no sampling
 ### Exit codes
 `0` LIKELY ORGANIC · `1` SUSPICIOUS · `2` LIKELY MANIPULATED · `3` error (e.g. rate-limited)
 
+### Sample size (`--sample auto`)
+By default the sample size is **computed from the repo's star count**, not fixed.
+It targets a ±8% margin of error (95% confidence) with finite-population
+correction, so big repos converge to ~150 profiles while small repos sample
+fewer (no point pulling 150 profiles from a 200-star repo). Examples: 100★→61,
+1,000★→131, 12,887★→149, 1M★→150. Override with an explicit `--sample 300`, or
+tune `--margin`/`--max-sample`.
+
 ### Performance & progress
-A full run fetches ~150 stargazer profiles plus the timeline — these profile
-fetches run **concurrently** (`--workers`, default 8), cutting a ~60s run to a
-few seconds. When attached to a terminal, the tool prints progress to stderr
-(`… Sampling 150 stargazer profiles…`); this is suppressed for pipes/`--json`.
-All HTTP requests use a 15s timeout so a stalled network can't hang the run.
+Profile fetches run **concurrently** (`--workers`, default 8), cutting a ~60s
+run to a few seconds. When attached to a terminal, the tool prints progress to
+stderr (`... Sampling up to N stargazer profiles...`); this is suppressed for
+pipes/`--json`. All HTTP requests use a 15s timeout so a stalled network can't
+hang the run.
 
 ---
 

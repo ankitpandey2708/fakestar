@@ -51,6 +51,22 @@ def _young_age_signal(median_age: float, counted: int) -> Signal:
 PER_PAGE = 100
 
 
+def auto_sample(total_stars: int, margin: float = 0.08, z: float = 1.96,
+                max_sample: int = 150) -> int:
+    """Sample size to estimate a proportion within +/- `margin` at confidence
+    `z`, finite-population-corrected for the repo's stargazer count.
+
+    Big repos converge to ~`max_sample` (about 150 at the default +/-8%); small
+    repos shrink, since there's no point sampling more profiles than the
+    population can support. Unknown/zero stars falls back to the cap.
+    """
+    if total_stars <= 0:
+        return max_sample
+    n0 = (z / margin) ** 2 * 0.25  # worst-case p(1-p) = 0.25
+    n = n0 / (1 + (n0 - 1) / total_stars)  # finite-population correction
+    return max(1, min(max_sample, ceil(n)))
+
+
 def _select_pages(total_pages: int, n_pages: int) -> list[int]:
     """Pick n_pages page numbers spread evenly across [1, total_pages].
 

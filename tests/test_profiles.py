@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fakestar.detectors.profiles import analyze_profiles, classify_account
+from fakestar.detectors.profiles import analyze_profiles, auto_sample, classify_account
 
 NOW = datetime(2026, 6, 26, tzinfo=timezone.utc)
 
@@ -66,6 +66,16 @@ def test_empty_sample_is_safe():
     signals, counted = analyze_profiles(FakeClient([]), "o", "r", sample=10, now=NOW)
     assert counted == 0
     assert all(s.tripped is False for s in signals)
+
+
+def test_auto_sample_scales_with_population():
+    assert auto_sample(1_000_000) == 150         # big repo -> the cap
+    assert auto_sample(0) == 150                 # unknown stars -> cap
+    assert auto_sample(7) == 7                   # tiny repo -> at most its size
+    mid = auto_sample(100)
+    assert 0 < mid < 150                         # small/medium repo shrinks
+    # tighter margin needs a bigger sample (up to the raised cap)
+    assert auto_sample(1_000_000, margin=0.05, max_sample=500) == 385
 
 
 def test_returns_actual_analyzed_count():

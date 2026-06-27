@@ -5,7 +5,7 @@ import os
 import sys
 
 from .detectors.engagement import analyze_engagement
-from .detectors.profiles import analyze_profiles
+from .detectors.profiles import analyze_profiles, auto_sample
 from .detectors.ratios import analyze_ratios
 from .detectors.temporal import analyze_temporal
 from .github import GitHubClient, RateLimited, RepoNotFound
@@ -14,6 +14,15 @@ from .report import render_json, render_text
 from .scoring import score_signals
 
 _EXIT = {"LIKELY ORGANIC": 0, "SUSPICIOUS": 1, "LIKELY MANIPULATED": 2}
+
+
+def _sample_arg(v: str):
+    if v == "auto":
+        return "auto"
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError("--sample must be >= 1 or 'auto'")
+    return n
 
 
 def _progress(msg: str) -> None:
@@ -29,8 +38,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Score a GitHub repo for inauthentic-star evidence.")
     p.add_argument("repo", help="target repository as owner/repo")
     p.add_argument("--token", help="GitHub token (else $GITHUB_TOKEN)")
-    p.add_argument("--sample", type=int, default=150,
-                   help="stargazer profiles to sample (default 150)")
+    p.add_argument("--sample", type=_sample_arg, default="auto",
+                   help="stargazer profiles to sample: an integer, or 'auto' "
+                        "(default) to size from the repo's star count")
+    p.add_argument("--margin", type=float, default=0.08,
+                   help="target margin of error for --sample auto (default 0.08)")
+    p.add_argument("--max-sample", type=int, default=150,
+                   help="cap for --sample auto (default 150)")
     p.add_argument("--timeline-pages", type=int, default=40,
                    help="star-timeline pages to fetch (default 40)")
     p.add_argument("--ratios-only", action="store_true",
@@ -63,13 +77,15 @@ def run(args: argparse.Namespace, client) -> Verdict:
     sampled = 0
 
     if not args.ratios_only:
+        stars = repo_data.get("stargazers_count", 0) or 0
+        sample = (auto_sample(stars, margin=args.margin, max_sample=args.max_sample)
+                  if args.sample == "auto" else args.sample)
         try:
-            _progress(f"Sampling up to {args.sample} stargazer profiles "
+            _progress(f"Sampling up to {sample} stargazer profiles "
                       f"({args.workers} workers)...")
             profile_signals, sampled = analyze_profiles(
                 client, owner, repo,
-                total_stars=repo_data.get("stargazers_count", 0),
-                sample=args.sample, workers=args.workers)
+                total_stars=stars, sample=sample, workers=args.workers)
             signals += profile_signals
         except Exception as e:  # tolerate detector failure
             notes.append(f"Profile sampling skipped: {e}")
