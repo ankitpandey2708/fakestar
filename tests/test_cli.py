@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from fakestar.cli import parse_args, run
+from fakestar.cli import main, parse_args, run
 from fakestar.github import RepoNotFound
 
 
@@ -14,7 +14,6 @@ def test_parse_args_defaults():
     assert a.margin == 0.08
     assert a.max_sample == 150
     assert a.timeline_pages == 40
-    assert a.ratios_only is False
     assert a.json is False
 
 
@@ -87,19 +86,11 @@ def test_run_repo_not_found_short_circuits():
     assert v.band == "LIKELY MANIPULATED"
 
 
-def test_run_ratios_only_skips_sampling():
-    repo = {"stargazers_count": 70000, "forks_count": 16450, "subscribers_count": 2030}
-    client = FakeClient(repo, [], [])
-    v = run(parse_args(["o/r", "--ratios-only"]), client)
-    names = {s.name for s in v.signals}
-    assert names == {"fork_to_star", "watcher_to_star"}
-
-
-def test_run_ratios_only_reports_zero_sample():
-    repo = {"stargazers_count": 70000, "forks_count": 16450, "subscribers_count": 2030}
-    client = FakeClient(repo, [], [])
-    v = run(parse_args(["o/r", "--ratios-only"]), client)
-    assert v.sample_size == 0
+def test_main_requires_a_token(monkeypatch, capsys):
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    rc = main(["o/r"])  # no token -> error out before any network call
+    assert rc == 3
+    assert "token" in capsys.readouterr().err.lower()
 
 
 def test_run_reports_actual_sample_size_not_requested():

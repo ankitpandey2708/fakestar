@@ -60,34 +60,34 @@ cd fakestar
 pip install -e .
 ```
 
-### Authenticate
-A GitHub token raises your rate limit from 60 to 5,000 requests/hour, which is
-required for profile sampling.
+### Authenticate (required)
+A GitHub token is **required** — the full analysis makes hundreds of API calls,
+far beyond the 60/hour unauthenticated limit. A token raises that to 5,000/hour.
 ```bash
 export GITHUB_TOKEN=ghp_xxx        # or pass --token
 ```
-Without a token the tool automatically degrades to **ratios-only** mode.
+A classic token with `public_repo` scope is enough. Without one, the tool exits
+with an error telling you to set it.
 
 ### Run
 ```bash
 fakestar-check facebook/react
 fakestar-check some/suspicious-repo --json
 fakestar-check big/repo --sample 300 --timeline-pages 60
-fakestar-check any/repo --ratios-only     # 1 API call, no sampling
+fakestar-check small/repo --sample 30        # faster: fewer profiles
 ```
 
 ### Options
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `--token TOKEN` | `$GITHUB_TOKEN` | GitHub personal access token |
+| `--token TOKEN` | `$GITHUB_TOKEN` | GitHub personal access token (**required**) |
 | `--sample N` | `auto` | stargazer profiles to sample; `auto` sizes from star count, or pass an integer |
 | `--margin F` | 0.08 | target margin of error for `--sample auto` |
 | `--max-sample N` | 150 | cap for `--sample auto` |
 | `--timeline-pages N` | 40 | star-timeline pages to fetch |
-| `--ratios-only` | off | skip profile + temporal detectors |
 | `--workers N` | 8 | parallel workers for stargazer profile fetching |
-| `--json` | off | emit JSON instead of a text report |
-| `--verbose` | off | show the raw value/baseline/threshold table instead of the plain-English view |
+| `--json` | off | emit JSON instead of a text report (mutually exclusive with `--verbose`) |
+| `--verbose` | off | show the raw value/baseline/threshold table (mutually exclusive with `--json`) |
 | `--wait` | off | sleep until the rate-limit window resets and retry, instead of erroring out |
 
 ### Exit codes
@@ -234,23 +234,15 @@ ones hard (e.g. 50–80% zero-followers) — that mismatch is the giveaway.
 **1. Automated tests** (no network, instant):
 ```bash
 pip install -e ".[dev]"
-python -m pytest -v        # 61 tests, injected fake clients — no GitHub calls
+python -m pytest -v        # injected fake clients — no GitHub calls
 ```
 
-**2. Quick live check, no token** — auto-degrades to ratios-only (1 API call, fits the 60/hr unauthenticated limit):
-```bash
-python -m fakestar.cli pallets/flask --ratios-only
-python -m fakestar.cli DigitalPlatDev/FreeDomain --ratios-only
-```
-On real data this reproduces the investigation's numbers — Flask's fork-to-star
-is ~0.235, FreeDomain's ~0.020. (Ratios-only contributes ≤35 points, so flagged
-repos stay in the lower bands here; the profile/engagement signals that fully
-condemn them need a token — see below.)
-
-**3. Full validation against the blog's labels** (needs a token for sampling):
+**2. Live validation against the blog's labels** (needs a token):
 ```bash
 export GITHUB_TOKEN=ghp_xxx        # run in your own shell — don't paste tokens into chat tools
+fakestar-check pallets/flask
 fakestar-check DigitalPlatDev/FreeDomain
+fakestar-check DigitalPlatDev/FreeDomain --sample 30   # quicker spot-check
 ```
 Confirm the two groups separate cleanly:
 

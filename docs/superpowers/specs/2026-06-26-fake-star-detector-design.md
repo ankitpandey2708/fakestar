@@ -199,8 +199,9 @@ reported as a high-signal special case.
 
 ## 7. GitHub Client, Auth, Errors (`github.py`)
 
-- Token resolution: `--token` flag, else `$GITHUB_TOKEN`. If absent: warn and
-  **degrade to ratios-only** (unauthenticated = 60 req/hr, can't sample).
+- Token resolution: `--token` flag, else `$GITHUB_TOKEN`. **A token is
+  required** — a full run far exceeds the 60 req/hr unauthenticated limit; if
+  absent, the CLI errors out (exit 3) telling the user to set it.
 - Error handling:
   - **404** — repo gone → emit high-signal note, score accordingly.
   - **403 / 429** rate limit — read `X-RateLimit-Reset`, print clear message;
@@ -231,11 +232,13 @@ reported as a high-signal special case.
 ```
 fakestar-check <owner/repo> [options]
 
-  --token TOKEN          GitHub token (else $GITHUB_TOKEN)
-  --sample N             stargazer profiles to sample (default 150)
+  --token TOKEN          GitHub token (else $GITHUB_TOKEN; required)
+  --sample N|auto        profiles to sample; auto sizes from star count (default)
+  --margin F             target margin of error for --sample auto (default 0.08)
+  --max-sample N         cap for --sample auto (default 150)
   --timeline-pages N     star-timeline pages to fetch (default 40)
-  --ratios-only          skip profile + temporal detectors
-  --json                 emit JSON instead of text report
+  --workers N            parallel workers for profile fetching (default 8)
+  --json | --verbose     output format (mutually exclusive)
   --wait                 sleep through rate-limit windows
 ```
 

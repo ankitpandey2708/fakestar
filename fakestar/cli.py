@@ -64,8 +64,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                    help="cap for --sample auto (default 150)")
     p.add_argument("--timeline-pages", type=int, default=40,
                    help="star-timeline pages to fetch (default 40)")
-    p.add_argument("--ratios-only", action="store_true",
-                   help="skip profile and temporal detectors")
     p.add_argument("--workers", type=int, default=8,
                    help="parallel workers for stargazer profile fetching (default 8)")
     # Output format is one choice: plain (default), --verbose, or --json.
@@ -95,30 +93,29 @@ def run(args: argparse.Namespace, client) -> Verdict:
     signals: list[Signal] = list(analyze_ratios(repo_data))
     sampled = 0
 
-    if not args.ratios_only:
-        stars = repo_data.get("stargazers_count", 0) or 0
-        sample = (auto_sample(stars, margin=args.margin, max_sample=args.max_sample)
-                  if args.sample == "auto" else args.sample)
-        try:
-            _progress(f"Sampling up to {sample} stargazer profiles "
-                      f"({args.workers} workers)...")
-            profile_signals, sampled = analyze_profiles(
-                client, owner, repo,
-                total_stars=stars, sample=sample, workers=args.workers)
-            signals += profile_signals
-        except Exception as e:  # tolerate detector failure
-            notes.append(f"Profile sampling skipped: {e}")
-        try:
-            _progress("Analyzing star timeline...")
-            signals += analyze_temporal(client, owner, repo,
-                                        max_pages=args.timeline_pages)
-        except Exception as e:
-            notes.append(f"Temporal analysis skipped: {e}")
-        try:
-            _progress("Checking contributors & engagement...")
-            signals += analyze_engagement(client, owner, repo, repo_data)
-        except Exception as e:
-            notes.append(f"Engagement analysis skipped: {e}")
+    stars = repo_data.get("stargazers_count", 0) or 0
+    sample = (auto_sample(stars, margin=args.margin, max_sample=args.max_sample)
+              if args.sample == "auto" else args.sample)
+    try:
+        _progress(f"Sampling up to {sample} stargazer profiles "
+                  f"({args.workers} workers)...")
+        profile_signals, sampled = analyze_profiles(
+            client, owner, repo,
+            total_stars=stars, sample=sample, workers=args.workers)
+        signals += profile_signals
+    except Exception as e:  # tolerate detector failure
+        notes.append(f"Profile sampling skipped: {e}")
+    try:
+        _progress("Analyzing star timeline...")
+        signals += analyze_temporal(client, owner, repo,
+                                    max_pages=args.timeline_pages)
+    except Exception as e:
+        notes.append(f"Temporal analysis skipped: {e}")
+    try:
+        _progress("Checking contributors & engagement...")
+        signals += analyze_engagement(client, owner, repo, repo_data)
+    except Exception as e:
+        notes.append(f"Engagement analysis skipped: {e}")
     _progress("Scoring...")
 
     return score_signals(signals, repo=args.repo, sample_size=sampled,
@@ -129,10 +126,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv if argv is not None else sys.argv[1:])
     token = args.token or os.environ.get("GITHUB_TOKEN")
     if not token:
-        args.ratios_only = True
-        print("WARNING: no token ($GITHUB_TOKEN); running ratios-only "
-              "(unauthenticated rate limits forbid profile sampling).",
-              file=sys.stderr)
+        print("ERROR: a GitHub token is required. Set $GITHUB_TOKEN or pass "
+              "--token.\nCreate one at https://github.com/settings/tokens "
+              "(public_repo scope is enough).", file=sys.stderr)
+        return 3
 
     client = GitHubClient(token=token, wait=args.wait)
     try:
