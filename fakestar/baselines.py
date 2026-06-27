@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Provenance of the numbers below (see README "Reading a result" + design spec):
+#   [blog]    explicitly stated in the source investigation
+#   [organic] from the blog's MEASURED organic baseline tables (Flask/LangChain/AutoGPT)
+#   [tuned]   my calibration: trip line drawn between the blog's organic & manipulated figures
+#   [n/a]     not in the blog's study at all — my addition
+# All WEIGHTS are [tuned]: the blog defines no scoring model. They are design
+# choices informed by which signals the blog emphasizes most.
+# ---------------------------------------------------------------------------
+
 # Weights sum to 100. zero_followers_pct is weighted heavily because the blog's
 # data shows it is the single most discriminating profile metric (organic
 # 6-12% vs manipulated 52-81%). ghost_pct is reduced: it is the strict
@@ -34,34 +44,36 @@ WEIGHTS: dict[str, int] = {
 # young_median_age is in DAYS and trips when the median falls BELOW the
 # threshold (younger = more suspicious).
 THRESHOLDS: dict[str, float] = {
-    "fork_to_star": 0.05,
-    "ghost_pct": 0.10,
-    "suspicious_pct": 0.15,
-    "zero_followers_pct": 0.35,
-    "zero_repos_pct": 0.20,
-    "zero_following_pct": 0.55,
-    "young_median_age": 730.0,
-    "watcher_to_star": 0.002,
-    "temporal_burst": 0.30,
+    "fork_to_star": 0.05,        # [blog]  "below 0.05 ... warrants scrutiny"
+    "ghost_pct": 0.10,           # [tuned] organic ~1% vs manipulated 19-28%
+    "suspicious_pct": 0.15,      # [tuned] organic 0% vs openai-fm 66%
+    "zero_followers_pct": 0.35,  # [tuned] organic 6-12% vs manipulated 52-81%
+    "zero_repos_pct": 0.20,      # [tuned] organic 2-6% vs manipulated 28-38%
+    "zero_following_pct": 0.55,  # [n/a]   prose only ("follow other users"); not measured
+    "young_median_age": 730.0,   # [tuned] organic ~3000d vs manip ~1000d / openai-fm 116d
+    "watcher_to_star": 0.002,    # [tuned] organic floor ~0.005 vs FreeDomain 0.001
+    "temporal_burst": 0.30,      # [n/a]   temporal analysis not in the blog's study
     # Engagement ("lower is worse" except staleness, which is "higher is worse")
-    "low_contributors": 10.0,     # contributors; trip if fewer (and stars > MIN)
-    "commit_staleness": 365.0,    # days since last push; trip if older
-    "low_issues": 0.001,          # open_issues / stars; trip if lower (and stars > MIN)
+    "low_contributors": 10.0,    # [n/a]   concept from blog; cutoff is mine. trip if fewer (and stars > MIN)
+    "commit_staleness": 365.0,   # [n/a]   days since last push; trip if older
+    "low_issues": 0.001,         # [n/a]   open_issues / stars; trip if lower (and stars > MIN)
 }
 
+# Baselines are display-only ("typical organic looks like this") — NOT used in
+# any scoring math. The profile/ratio ones come from the blog's measured tables.
 BASELINES: dict[str, float] = {
-    "fork_to_star": 0.16,
-    "ghost_pct": 0.01,
-    "suspicious_pct": 0.00,
-    "zero_followers_pct": 0.10,
-    "zero_repos_pct": 0.05,
-    "zero_following_pct": 0.40,
-    "young_median_age": 3000.0,
-    "watcher_to_star": 0.015,
-    "temporal_burst": 0.05,
-    "low_contributors": 50.0,
-    "commit_staleness": 30.0,
-    "low_issues": 0.02,
+    "fork_to_star": 0.16,        # [organic] blog avg 0.160
+    "ghost_pct": 0.01,           # [organic] "about 1%"
+    "suspicious_pct": 0.00,      # [organic] "0.0%"
+    "zero_followers_pct": 0.10,  # [organic] 6-12%
+    "zero_repos_pct": 0.05,      # [organic] 2-6%
+    "zero_following_pct": 0.40,  # [n/a]     estimate; not measured by the blog
+    "young_median_age": 3000.0,  # [organic] medians 2967-4801d (low end)
+    "watcher_to_star": 0.015,    # [organic] range 0.005-0.030
+    "temporal_burst": 0.05,      # [n/a]     not in the blog's study
+    "low_contributors": 50.0,    # [n/a]     my reference, not from the blog
+    "commit_staleness": 30.0,    # [n/a]     my reference, not from the blog
+    "low_issues": 0.02,          # [n/a]     my reference, not from the blog
 }
 
 MIN_STARS_FOR_RATIO: int = 10_000
