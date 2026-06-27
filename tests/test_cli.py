@@ -23,6 +23,11 @@ def test_parse_args_explicit_sample():
     assert a.sample == 300
 
 
+def test_parse_args_rejects_bad_margin():
+    with pytest.raises(SystemExit):  # argparse exits on invalid value
+        parse_args(["octocat/hello", "--margin", "0"])
+
+
 class FakeClient:
     def __init__(self, repo, users, timestamps, fail=None, contributors=50):
         self._repo, self._users, self._ts, self._fail = repo, users, timestamps, fail

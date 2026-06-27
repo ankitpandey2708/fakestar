@@ -60,7 +60,8 @@ def auto_sample(total_stars: int, margin: float = 0.08, z: float = 1.96,
     repos shrink, since there's no point sampling more profiles than the
     population can support. Unknown/zero stars falls back to the cap.
     """
-    if total_stars <= 0:
+    max_sample = max(1, max_sample)
+    if total_stars <= 0 or margin <= 0:  # can't size -> fall back to the cap
         return max_sample
     n0 = (z / margin) ** 2 * 0.25  # worst-case p(1-p) = 0.25
     n = n0 / (1 + (n0 - 1) / total_stars)  # finite-population correction

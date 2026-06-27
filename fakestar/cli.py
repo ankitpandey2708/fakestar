@@ -19,9 +19,26 @@ _EXIT = {"LIKELY ORGANIC": 0, "SUSPICIOUS": 1, "LIKELY MANIPULATED": 2}
 def _sample_arg(v: str):
     if v == "auto":
         return "auto"
-    n = int(v)
+    try:
+        n = int(v)
+    except ValueError:
+        raise argparse.ArgumentTypeError("--sample must be an integer or 'auto'")
     if n < 1:
         raise argparse.ArgumentTypeError("--sample must be >= 1 or 'auto'")
+    return n
+
+
+def _positive_float(v: str) -> float:
+    f = float(v)
+    if f <= 0:
+        raise argparse.ArgumentTypeError("must be > 0")
+    return f
+
+
+def _positive_int(v: str) -> int:
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
     return n
 
 
@@ -41,9 +58,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--sample", type=_sample_arg, default="auto",
                    help="stargazer profiles to sample: an integer, or 'auto' "
                         "(default) to size from the repo's star count")
-    p.add_argument("--margin", type=float, default=0.08,
+    p.add_argument("--margin", type=_positive_float, default=0.08,
                    help="target margin of error for --sample auto (default 0.08)")
-    p.add_argument("--max-sample", type=int, default=150,
+    p.add_argument("--max-sample", type=_positive_int, default=150,
                    help="cap for --sample auto (default 150)")
     p.add_argument("--timeline-pages", type=int, default=40,
                    help="star-timeline pages to fetch (default 40)")

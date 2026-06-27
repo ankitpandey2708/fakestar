@@ -78,6 +78,11 @@ def test_auto_sample_scales_with_population():
     assert auto_sample(1_000_000, margin=0.05, max_sample=500) == 385
 
 
+def test_auto_sample_handles_degenerate_args():
+    assert auto_sample(1000, margin=0) == 150     # margin 0 -> no divide-by-zero
+    assert auto_sample(1000, max_sample=0) == 1   # cap floored to >= 1
+
+
 def test_returns_actual_analyzed_count():
     users = [_user(f"g{i}", 1000, 0, 0, "") for i in range(10)]
     # fewer stargazers available than requested -> count reflects reality
