@@ -68,9 +68,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                    help="skip profile and temporal detectors")
     p.add_argument("--workers", type=int, default=8,
                    help="parallel workers for stargazer profile fetching (default 8)")
-    p.add_argument("--json", action="store_true", help="emit JSON")
-    p.add_argument("--verbose", action="store_true",
-                   help="show the raw value/baseline/threshold table")
+    # Output format is one choice: plain (default), --verbose, or --json.
+    out = p.add_mutually_exclusive_group()
+    out.add_argument("--json", action="store_true", help="emit JSON")
+    out.add_argument("--verbose", action="store_true",
+                     help="show the raw value/baseline/threshold table")
     p.add_argument("--wait", action="store_true",
                    help="sleep through rate-limit windows")
     return p.parse_args(argv)

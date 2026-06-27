@@ -28,6 +28,11 @@ def test_parse_args_rejects_bad_margin():
         parse_args(["octocat/hello", "--margin", "0"])
 
 
+def test_parse_args_json_and_verbose_are_mutually_exclusive():
+    with pytest.raises(SystemExit):  # both pick an output format
+        parse_args(["octocat/hello", "--json", "--verbose"])
+
+
 class FakeClient:
     def __init__(self, repo, users, timestamps, fail=None, contributors=50):
         self._repo, self._users, self._ts, self._fail = repo, users, timestamps, fail
